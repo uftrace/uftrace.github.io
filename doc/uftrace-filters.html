@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
+    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <title>uftrace</title>
+    <link rel="stylesheet" href="uftrace.css" type="text/css">
+  </head>
+  <body>
+    <textarea id="source">
+name: title-layout
+layout: true
+class: center, middle, title
+
+---
+name: picture-layout
+layout: true
+class: center, middle
+
+---
+name: basic-layout
+layout: true
+class: left, top
+
+---
+name: filters
+template: title-layout
+# Filters
+.footnote[[wiki/Tutorial:-Filters](https://github.com/namhyung/uftrace/wiki/Tutorial:-Filters)]
+
+---
+### Filters
+- -D DEPTH, --depth=DEPTH
+  - Set global trace limit in nesting level.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -D DEPTH, --depth=DEPTH
+  - Set global trace limit in nesting level.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-D 2` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -D DEPTH, --depth=DEPTH
+  - Set global trace limit in nesting level.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-D 2` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+//     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -D DEPTH, --depth=DEPTH
+  - Set global trace limit in nesting level.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-D 2` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+     0.767 us [11558] |   foo();
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -F FUNC, --filter=FUNC
+  - Set filter to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -F FUNC, --filter=FUNC
+  - Set filter to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-F foo` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   `foo`() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -F FUNC, --filter=FUNC
+  - Set filter to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-F foo` a.out
+  # DURATION    TID     FUNCTION
+//              [11558] | main() {
+              [11558] |   `foo`() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+//     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -F FUNC, --filter=FUNC
+  - Set filter to trace selected functions only.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-F foo` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | `foo`() {
+     0.156 us [11558] |   bar();
+     0.767 us [11558] | } /* foo */
+</code></pre>
+---
+### Filters
+- -N FUNC, --notrace=FUNC
+  - Set filter not to trace selected functions (and children)
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -N FUNC, --notrace=FUNC
+  - Set filter not to trace selected functions (and children)
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-N foo` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   `foo`() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -N FUNC, --notrace=FUNC
+  - Set filter not to trace selected functions (and children)
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-N foo` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+//              [11558] |   `foo`() {
+//     0.156 us [11558] |     bar();
+//     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -N FUNC, --notrace=FUNC
+  - Set filter not to trace selected functions (and children)
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-N foo` a.out
+  # DURATION    TID     FUNCTION
+     1.140 us [11558] | main();
+</code></pre>
+---
+### Filters
+- -t TIME, --time-filter=TIME
+  - Do not show small functions under the time threshold.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -t TIME, --time-filter=TIME
+  - Do not show small functions under the time threshold.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-t 200ns` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     `0.156 us` [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -t TIME, --time-filter=TIME
+  - Do not show small functions under the time threshold.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-t 200ns` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+//     `0.156 us` [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+</code></pre>
+---
+### Filters
+- -t TIME, --time-filter=TIME
+  - Do not show small functions under the time threshold.
+
+<pre><code class="plain">  $ gcc -pg foobar.c
+
+  $ uftrace `-t 200ns` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+     0.767 us [11558] |   foo();
+     1.140 us [11558] | } /* main */
+</code></pre>
+
+---
+name:end
+template: title-layout
+
+# Thanks!
+### https://github.com/namhyung/uftrace
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script>
+      var hljs = remark.highlighter.engine;
+    </script>
+    <script src="https://remarkjs.com/remark.language.js"></script>
+    <script src="uftrace.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125043112-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-125043112-1');
+    </script>
+  </body>
+</html>

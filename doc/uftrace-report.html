@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
+    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <title>uftrace</title>
+    <link rel="stylesheet" href="uftrace.css" type="text/css">
+  </head>
+  <body>
+    <textarea id="source">
+name: title-layout
+layout: true
+class: center, middle, title
+
+---
+name: picture-layout
+layout: true
+class: center, middle
+
+---
+name: basic-layout
+layout: true
+class: left, top
+
+---
+name: report
+template: title-layout
+# uftrace report
+### Print statistics and summary for trace data
+.footnote[[doc/uftrace-report.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-report.md)]
+
+---
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg foobar.c
+```
+---
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+```
+---
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ uftrace report
+```
+---
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ uftrace report
+  Total time  Self time      Calls Function
+  ========== ========== ========== =================
+    0.890 us   0.326 us          1 main
+    0.564 us   0.430 us          1 foo
+    0.134 us   0.134 us          1 bar
+```
+---
+### uftrace report
+- Print statistics and summary for trace data
+  - Sort functions by .red[total time] (default)
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ uftrace report `-s total`
+  `Total time`  Self time      Calls Function
+  ========== ========== ========== =================
+    0.890 us   0.326 us          1 main
+    0.564 us   0.430 us          1 foo
+    0.134 us   0.134 us          1 bar
+```
+---
+### uftrace report
+- Print statistics and summary for trace data
+  - Sort functions by .red[self time]
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ uftrace report `-s self`
+  Total time  `Self time`      Calls Function
+  ========== ========== ========== =================
+    0.564 us   0.430 us          1 foo
+    0.890 us   0.326 us          1 main
+    0.134 us   0.134 us          1 bar
+```
+---
+### uftrace report
+- Print statistics and summary for trace data
+  - Sort functions by .red[number of calls]
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ uftrace report `-s call`
+  Total time  Self time      `Calls` Function
+  ========== ========== ========== =================
+    0.890 us   0.326 us          1 main
+    0.564 us   0.430 us          1 foo
+    0.134 us   0.134 us          1 bar
+```
+
+---
+name:end
+template: title-layout
+
+# Thanks!
+### https://github.com/namhyung/uftrace
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script>
+      var hljs = remark.highlighter.engine;
+    </script>
+    <script src="https://remarkjs.com/remark.language.js"></script>
+    <script src="uftrace.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125043112-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-125043112-1');
+    </script>
+  </body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
+    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <title>uftrace</title>
+    <link rel="stylesheet" href="uftrace.css" type="text/css">
+  </head>
+  <body>
+    <textarea id="source">
+name: title-layout
+layout: true
+class: center, middle, title
+
+---
+name: picture-layout
+layout: true
+class: center, middle
+
+---
+name: basic-layout
+layout: true
+class: left, top
+
+---
+name: examples
+template: title-layout
+## What kind of projects uftrace can analyze?
+
+---
+class: code-15px
+### uftrace output of Clang/LLVM
+<pre><code>  $ uftrace -t 2ms -F cc1_main .red[clang] fibonacci.c</code></pre>
+---
+class: code-15px
+### uftrace output of Clang/LLVM
+```
+  $ uftrace -t 2ms -F cc1_main clang fibonacci.c
+  # DURATION     TID     FUNCTION
+              [ 19045] | cc1_main() {
+              [ 19045] |   clang::CompilerInvocation::CreateFromArgs() {
+     2.270 ms [ 19045] |     ParseCodeGenArgs();
+     8.653 ms [ 19045] |   } /* clang::CompilerInvocation::CreateFromArgs */
+              [ 19045] |   clang::ExecuteCompilerInvocation() {
+              [ 19045] |     clang::CompilerInstance::ExecuteAction() {
+     2.185 ms [ 19045] |       clang::FrontendAction::BeginSourceFile();
+              [ 19045] |       clang::FrontendAction::Execute() {
+              [ 19045] |         clang::CodeGenAction::ExecuteAction() {
+              [ 19045] |           clang::ASTFrontendAction::ExecuteAction() {
+              [ 19045] |             clang::ParseAST() {
+              [ 19045] |               clang::Parser::Initialize() {
+     3.841 ms [ 19045] |                 clang::Preprocessor::Lex();
+     3.887 ms [ 19045] |               } /* clang::Parser::Initialize */
+              [ 19045] |               clang::BackendConsumer::HandleTranslationUnit() {
+              [ 19045] |                 clang::EmitBackendOutput() {
+              [ 19045] |                   llvm::LLVMTargetMachine::addPassesToEmitFile() {
+     2.044 ms [ 19045] |                     addPassesToGenerateCode();
+     2.068 ms [ 19045] |                   } /* llvm::LLVMTargetMachine::addPassesToEmitFile */
+              [ 19045] |                   llvm::legacy::PassManager::run() {
+     2.196 ms [ 19045] |                     llvm::legacy::PassManagerImpl::run();
+     2.196 ms [ 19045] |                   } /* llvm::legacy::PassManager::run */
+     5.053 ms [ 19045] |                 } /* clang::EmitBackendOutput */
+     5.076 ms [ 19045] |               } /* clang::BackendConsumer::HandleTranslationUnit */
+    23.361 ms [ 19045] |             } /* clang::ParseAST */
+    23.385 ms [ 19045] |           } /* clang::ASTFrontendAction::ExecuteAction */
+    23.385 ms [ 19045] |         } /* clang::CodeGenAction::ExecuteAction */
+    23.386 ms [ 19045] |       } /* clang::FrontendAction::Execute */
+    25.651 ms [ 19045] |     } /* clang::CompilerInstance::ExecuteAction */
+    25.667 ms [ 19045] |   } /* clang::ExecuteCompilerInvocation */
+    34.368 ms [ 19045] | } /* cc1_main */
+```
+
+---
+class: code-14px
+### uftrace output of V8 JavaScript Engine
+```
+  $ uftrace -F v8::Shell::Main -t 50ms ./d8 fibonacci.js
+  # DURATION     TID     FUNCTION
+              [ 13090] | v8::Shell::Main() {
+              [ 13090] |   v8::Isolate::New() {
+              [ 13090] |     v8::internal::Isolate::Init() {
+              [ 13090] |       v8::internal::Heap::CreateHeapObjects() {
+              [ 13090] |         v8::internal::Heap::CreateInitialObjects() {
+              [ 13090] |           v8::internal::Heap::CreateFixedStubs() {
+    57.433 ms [ 13090] |             v8::internal::CodeStub::GenerateStubsAheadOfTime();
+    57.472 ms [ 13090] |           } /* v8::internal::Heap::CreateFixedStubs */
+    60.804 ms [ 13090] |         } /* v8::internal::Heap::CreateInitialObjects */
+    60.902 ms [ 13090] |       } /* v8::internal::Heap::CreateHeapObjects */
+   100.935 ms [ 13090] |     } /* v8::internal::Isolate::Init */
+   100.992 ms [ 13090] |   } /* v8::Isolate::New */
+              [ 13090] |   v8::Shell::RunMain() {
+              [ 13090] |     v8::Shell::CreateEvaluationContext() {
+              [ 13090] |       v8::Context::New() {
+              [ 13090] |         v8::NewContext() {
+              [ 13090] |           v8::internal::Bootstrapper::CreateEnvironment() {
+              [ 13090] |             v8::internal::Genesis::Genesis() {
+   191.952 ms [ 13090] |               v8::internal::Genesis::InstallNatives();
+   203.549 ms [ 13090] |             } /* v8::internal::Genesis::Genesis */
+   203.569 ms [ 13090] |           } /* v8::internal::Bootstrapper::CreateEnvironment */
+   203.575 ms [ 13090] |         } /* v8::NewContext */
+   203.575 ms [ 13090] |       } /* v8::Context::New */
+   203.721 ms [ 13090] |     } /* v8::Shell::CreateEvaluationContext */
+              [ 13090] |     v8::SourceGroup::Execute() {
+              [ 13090] |       v8::Shell::ExecuteString() {
+              [ 13090] |         v8::Script::Run() {
+    55.348 ms [ 13090] |           v8::internal::Execution::Call();
+    55.350 ms [ 13090] |         } /* v8::Script::Run */
+    55.910 ms [ 13090] |       } /* v8::Shell::ExecuteString */
+    55.940 ms [ 13090] |     } /* v8::SourceGroup::Execute */
+   259.667 ms [ 13090] |   } /* v8::Shell::RunMain */
+   361.898 ms [ 13090] | } /* v8::Shell::Main */
+```
+
+---
+name:end
+template: title-layout
+
+# Thanks!
+### https://github.com/namhyung/uftrace
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script>
+      var hljs = remark.highlighter.engine;
+    </script>
+    <script src="https://remarkjs.com/remark.language.js"></script>
+    <script src="uftrace.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125043112-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-125043112-1');
+    </script>
+  </body>
+</html>

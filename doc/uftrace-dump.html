@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
+    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <title>uftrace</title>
+    <link rel="stylesheet" href="uftrace.css" type="text/css">
+  </head>
+  <body>
+    <textarea id="source">
+name: title-layout
+layout: true
+class: center, middle, title
+
+---
+name: picture-layout
+layout: true
+class: center, middle
+
+---
+name: basic-layout
+layout: true
+class: left, top
+
+---
+name: dump
+template: title-layout
+# uftrace dump
+### with visualization
+.footnote[[doc/uftrace-dump.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-dump.md)]
+
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+- Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
+  - uftrace dump --chrome
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[<a href="https://honggyukim.github.io/uftrace/cppcon2016/clang.tmp.fib.html" target="_blank">open in chrome trace viewer</a>]
+- Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
+  - uftrace dump --chrome
+
+<a href="https://honggyukim.github.io/uftrace/cppcon2016/clang.tmp.fib.html" target="_blank">
+<img src="https://raw.githubusercontent.com/namhyung/uftrace/master/doc/uftrace-chrome.png" class="center-image" width="90%">
+</a>
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[<a href="dump/node-marked.html" target="_blank">open in chrome trace viewer</a>]
+- Below is a trace of node running a markdown processing with marked.
+  - uftrace dump --chrome
+
+<a href="dump/node-marked.html" target="_blank">
+<img src="https://raw.githubusercontent.com/namhyung/uftrace/master/doc/uftrace-chrome.png" class="center-image" width="90%">
+</a>
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+
+        $ uftrace record a.out
+```
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+
+        $ uftrace record a.out
+
+        $ uftrace dump `--chrome` > uftrace-dump-chrome.json
+```
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+
+        $ uftrace record a.out
+
+        $ uftrace dump --chrome > uftrace-dump-chrome.json
+
+        $ `trace2html` uftrace-dump-chrome.json
+```
+---
+### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
+.footnote[[Catapult Project](https://github.com/catapult-project/catapult)]
+- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+  - Catapult's [trace2html](https://github.com/catapult-project/catapult/blob/master/tracing/bin/trace2html) script can convert it to HTML.
+
+```
+
+        $ uftrace record a.out
+
+        $ uftrace dump --chrome > uftrace-dump-chrome.json
+
+        $ trace2html uftrace-dump-chrome.json
+        `uftrace-dump-chrome.html`
+```
+
+---
+### [Flame Graph](http://www.brendangregg.com/flamegraphs.html)
+- Flame graph of V8 JavaScript engine running splay bench
+  - uftrace dump --flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
+---
+### [Flame Graph](http://www.brendangregg.com/flamegraphs.html)
+.footnote[<a href="https://honggyukim.github.io/uftrace/v8/octane-splay/trace_splay.js.svg" target="_blank">open in browser</a>]
+- Flame graph of V8 JavaScript engine running splay bench
+  - uftrace dump --flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
+
+<a href="https://honggyukim.github.io/uftrace/v8/octane-splay/trace_splay.js.svg" target="_blank">
+<img src="https://honggyukim.github.io/uftrace/v8/octane-splay/trace_splay.js.svg" class="center-image" width="55%">
+</a>
+
+---
+### [Flame Graph](http://www.brendangregg.com/flamegraphs.html)
+- Flame graph of node running a markdown processing with marked
+  - uftrace dump --flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > node-marked.svg
+---
+### [Flame Graph](http://www.brendangregg.com/flamegraphs.html)
+.footnote[<a href="dump/node-marked.svg" target="_blank">open in browser</a>]
+- Flame graph of node running a markdown processing with marked
+  - uftrace dump --flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
+
+<a href="dump/node-marked.svg" target="_blank">
+<img src="dump/node-marked.svg" class="center-image" width="55%">
+</a>
+
+---
+name:end
+template: title-layout
+
+# Thanks!
+### https://github.com/namhyung/uftrace
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script>
+      var hljs = remark.highlighter.engine;
+    </script>
+    <script src="https://remarkjs.com/remark.language.js"></script>
+    <script src="uftrace.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125043112-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-125043112-1');
+    </script>
+  </body>
+</html>

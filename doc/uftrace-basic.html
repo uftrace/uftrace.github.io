@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
+    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <title>uftrace</title>
+    <link rel="stylesheet" href="uftrace.css" type="text/css">
+  </head>
+  <body>
+    <textarea id="source">
+name: title-layout
+layout: true
+class: center, middle, title
+
+---
+name: picture-layout
+layout: true
+class: center, middle
+
+---
+name: basic-layout
+layout: true
+class: left, top
+
+---
+name: basic-tracing
+template: title-layout
+# Basic Tracing
+### record and replay
+
+---
+### uftrace
+- uftrace is able to trace
+  - C/C++ (user space) functions
+      - compiled with -pg or -finstrument-functions
+  - Library functions
+  - Linux kernel functions
+  - Some of system events
+
+---
+name: user-tracing
+### C/C++ (user) Function Tracing
+- Compiler assists tracing with -pg or -finstrument-functions
+
+  ```
+  $ 
+  ```
+
+.left-column[
+```
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+}
+```
+]
+.right-column[
+```
+```
+]
+
+---
+### C/C++ (user) Function Tracing
+- Compiler assists tracing with -pg or -finstrument-functions
+
+  ```
+  $ gcc foobar.c
+  ```
+
+.left-column[
+```
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+}
+```
+]
+.right-column[
+```
+<bar>:
+
+  ret
+
+<foo>:
+
+  call <bar>
+  ret
+
+<main>:
+
+  call <foo>
+  ret
+```
+]
+
+---
+### C/C++ (user) Function Tracing
+- Compiler assists tracing with -pg or -finstrument-functions
+
+  ```
+  $ gcc `-pg` foobar.c
+  ```
+
+.left-column[
+```
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+}
+```
+]
+.right-column[
+```
+<bar>:
+* call <mcount@plt>
+  ret
+
+<foo>:
+* call <mcount@plt>
+  call <bar>
+  ret
+
+<main>:
+* call <mcount@plt>
+  call <foo>
+  ret
+```
+]
+
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc foobar.c
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc `-pg` foobar.c
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc -pg foobar.c
+  $ ./a.out
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace record
+  - Run a command and record its trace data
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace `record` a.out
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace replay
+  - Print recorded function trace
+
+```
+  $ gcc -pg foobar.c
+  $ uftrace record a.out
+  $ uftrace `replay`
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace live
+  - Trace functions both doing record and replay
+
+```
+  $ gcc -pg foobar.c
+
+  $ uftrace `live` a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+```
+---
+class: code-26px
+### C/C++ (user) Function Tracing
+- uftrace .grey[(live)]
+  - .red[live] can be omitted
+
+```
+  $ gcc -pg foobar.c
+
+  $ uftrace a.out
+  # DURATION    TID     FUNCTION
+              [11558] | main() {
+              [11558] |   foo() {
+     0.156 us [11558] |     bar();
+     0.767 us [11558] |   } /* foo */
+     1.140 us [11558] | } /* main */
+```
+
+---
+name: lib-tracing
+### Library Function Tracing
+- Library Function Tracing works via PLT hooking
+
+```
+    $ gcc -pg foobar.c
+```
+
+.left-column[
+```
+void bar() {
+
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+}
+```
+]
+.right-column[
+```
+<bar>:
+  call <mcount@plt>
+
+  ret
+
+<foo>:
+  call <mcount@plt>
+  call <bar>
+  ret
+
+<main>:
+  call <mcount@plt>
+  call <foo>
+  ret
+```
+]
+---
+### Library Function Tracing
+- Library Function Tracing works via .red[PLT hooking]
+
+```
+    $ gcc -pg foobar.c
+```
+
+.left-column[
+```
+void bar() {
+  `getpid()`;
+}
+
+void foo() {
+  bar();
+}
+
+int main() {
+  foo();
+}
+```
+]
+.right-column[
+```
+<bar>:
+  call <mcount@plt>
+* call <getpid@plt> # call to PLT
+  ret
+
+<foo>:
+  call <mcount@plt>
+  call <bar>
+  ret
+
+<main>:
+  call <mcount@plt>
+  call <foo>
+  ret
+```
+]
+---
+class: code-26px
+### Library Function Tracing
+- Library Function Tracing works via PLT hooking
+
+```
+    $ gcc -pg foobar.c
+```
+---
+class: code-26px
+### Library Function Tracing
+- Library Function Tracing works via PLT hooking
+
+```
+    $ gcc -pg foobar.c
+
+    $ uftrace a.out
+```
+---
+class: code-26px
+### Library Function Tracing
+- Library Function Tracing works via PLT hooking
+
+```
+    $ gcc -pg foobar.c
+
+    $ uftrace a.out
+    # DURATION    TID     FUNCTION
+                [11558] | main() {
+                [11558] |   foo() {
+                [11558] |     bar() {
+       6.263 us [11558] |       `getpid`();
+       7.016 us [11558] |     } /* bar */
+       7.443 us [11558] |   } /* foo */
+       7.826 us [11558] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --no-libcall
+  - Do not record library function invocations.
+
+
+```
+    $ gcc -pg foobar.c
+
+    $ uftrace a.out
+    # DURATION    TID     FUNCTION
+                [11558] | main() {
+                [11558] |   foo() {
+                [11558] |     bar() {
+       6.263 us [11558] |       getpid();
+       7.016 us [11558] |     } /* bar */
+       7.443 us [11558] |   } /* foo */
+       7.826 us [11558] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --no-libcall
+  - Do not record library function invocations.
+
+
+```
+    $ gcc -pg foobar.c
+  
+    $ uftrace `--no-libcall` a.out
+    # DURATION    TID     FUNCTION
+                [11558] | main() {
+                [11558] |   foo() {
+                [11558] |     bar() {
+//       6.263 us [11558] |       getpid();
+       7.016 us [11558] |     } /* bar */
+       7.443 us [11558] |   } /* foo */
+       7.826 us [11558] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --no-libcall
+  - Do not record library function invocations.
+
+
+```
+    $ gcc -pg foobar.c
+
+    $ uftrace `--no-libcall` a.out
+    # DURATION    TID     FUNCTION
+                [11558] | main() {
+                [11558] |   foo() {
+       7.016 us [11558] |     bar();
+       7.443 us [11558] |   } /* foo */
+       7.826 us [11558] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- C++ example
+  - new and delete library calls
+
+```
+  $ cat new-delete.cpp
+  int main()
+  {
+      int* p = new int;
+      delete p;
+  }
+```
+---
+class: code-26px
+### Library Function Tracing
+- C++ example
+  - new and delete library calls
+
+```
+  $ cat new-delete.cpp
+  int main()
+  {
+      int* p = new int;
+      delete p;
+  }
+
+  $ g++ -pg new-delete.cpp
+```
+---
+class: code-26px
+### Library Function Tracing
+- C++ example
+  - It shows .red[operator new] and .red[operator delete]
+
+```
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [180964] | main() {
+     2.420 us [180964] |   `operator new`();
+     3.170 us [180964] |   `operator delete`();
+    11.220 us [180964] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --nest-libcall
+  - Trace function calls between libraries.
+
+```
+  $ uftrace a.out
+  # DURATION     TID     FUNCTION
+              [180964] | main() {
+     2.420 us [180964] |   operator new();
+     3.170 us [180964] |   operator delete();
+    11.220 us [180964] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --nest-libcall
+  - Trace function calls between libraries.
+
+```
+  $ uftrace `--nest-libcall` a.out
+  # DURATION     TID     FUNCTION
+              [180978] | main() {
+              [180978] |   operator new() {
+
+     4.250 us [180978] |   } /* operator new */
+              [180978] |   operator delete() {
+
+     3.547 us [180978] |   } /* operator delete */
+    11.857 us [180978] | } /* main */
+```
+---
+class: code-26px
+### Library Function Tracing
+- --nest-libcall
+  - Trace function calls between libraries.
+
+```
+  $ uftrace `--nest-libcall` a.out
+  # DURATION     TID     FUNCTION
+              [180978] | main() {
+              [180978] |   operator new() {
+     0.957 us [180978] |     `malloc`();
+     4.250 us [180978] |   } /* operator new */
+              [180978] |   operator delete() {
+     1.540 us [180978] |     `free`();
+     3.547 us [180978] |   } /* operator delete */
+    11.857 us [180978] | } /* main */
+```
+
+---
+name: kernel-tracing
+class: code-26px
+### Linux Kernel Function Tracing
+- -k, --kernel
+  - Trace kernel functions as well as user functions.
+
+```
+  $ gcc -pg hello.c
+```
+---
+class: code-26px
+### Linux Kernel Function Tracing
+- -k, --kernel
+  - Trace kernel functions as well as user functions.
+
+```
+  $ gcc -pg hello.c
+  $ uftrace a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161960] | main() {
+     7.267 us [161960] |   printf();
+     6.920 us [161960] |   fflush();
+    15.694 us [161960] | } /* main */
+```
+---
+class: code-26px
+### Linux Kernel Function Tracing
+- -k, --kernel
+  - Trace kernel functions as well as user functions.
+
+```
+  $ gcc -pg hello.c
+  $ `sudo` uftrace `-k` a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161968] | main() {
+              [161968] |   printf() {
+
+
+    32.457 us [161968] |   } /* printf */
+              [161968] |   fflush() {
+
+    25.244 us [161968] |   } /* fflush */
+    59.221 us [161968] | } /* main */
+```
+---
+class: code-26px
+### Linux Kernel Function Tracing
+- -k, --kernel
+  - Trace kernel functions as well as user functions.
+
+```
+  $ gcc -pg hello.c
+  $ `sudo` uftrace `-k` a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [161968] | main() {
+              [161968] |   printf() {
+     7.770 us [161968] |     `sys_newfstat`();
+    11.737 us [161968] |     `__do_page_fault`();
+    32.457 us [161968] |   } /* printf */
+              [161968] |   fflush() {
+    18.637 us [161968] |     `sys_write`();
+    25.244 us [161968] |   } /* fflush */
+    59.221 us [161968] | } /* main */
+```
+---
+class: code-18px
+### Linux Kernel Function Tracing
+- -K DEPTH, --kernel-depth=DEPTH
+  - Set kernel max function depth separately.
+
+```
+  $ sudo uftrace `-K 2` a.out
+  Hello World!
+```
+---
+class: code-18px
+### Linux Kernel Function Tracing
+- -K DEPTH, --kernel-depth=DEPTH
+  - Set kernel max function depth separately.
+
+```
+  $ sudo uftrace `-K 2` a.out
+  Hello World!
+  # DURATION     TID     FUNCTION
+              [162954] | main() {
+              [162954] |   printf() {
+              [162954] |     `sys_newfstat`() {
+     3.074 us [162954] |       `vfs_fstat`();
+     1.200 us [162954] |       `cp_new_stat`();
+     6.914 us [162954] |     } /* sys_newfstat */
+              [162954] |     `__do_page_fault`() {
+     0.643 us [162954] |       `down_read_trylock`();
+     0.630 us [162954] |       `_cond_resched`();
+     2.440 us [162954] |       `find_vma`();
+     9.697 us [162954] |       `handle_mm_fault`();
+     0.690 us [162954] |       `up_read`();
+    21.813 us [162954] |     } /* __do_page_fault */
+    42.064 us [162954] |   } /* printf */
+              [162954] |   fflush() {
+              [162954] |     `sys_write`() {
+     0.933 us [162954] |       `__fdget_pos`();
+    18.310 us [162954] |       `vfs_write`();
+    27.117 us [162954] |     } /* sys_write */
+    30.673 us [162954] |   } /* fflush */
+    74.223 us [162954] | } /* main */
+```
+
+---
+name: event-tracing
+class: code-20px
+### Event Tracing (sched event)
+<pre>
+<code class="plain">        $ uftrace tests/t-fork
+        # DURATION     TID     FUNCTION
+                    [ 14528] | main() {
+         127.033 us [ 14528] |   fork();
+                    [ 14528] |   wait() {
+                    [ 14528] |     /* <x-green>linux:sched-out</x-green> */
+                    [ 14540] |   } /* fork */
+                    [ 14540] |   a() {
+                    [ 14540] |     b() {
+                    [ 14540] |       c() {
+           1.507 us [ 14540] |         getpid();
+           2.987 us [ 14540] |       } /* c */
+           3.464 us [ 14540] |     } /* b */
+           3.854 us [ 14540] |   } /* a */
+          13.394 us [ 14540] | } /* main */
+                    [ 14528] |     /* <x-green>linux:sched-in</x-green> */
+         799.270 us [ 14528] |   } /* wait */
+                    [ 14528] |   a() {
+                    [ 14528] |     b() {
+                    [ 14528] |       c() {
+           2.410 us [ 14528] |         getpid();
+           3.470 us [ 14528] |       } /* c */
+           3.833 us [ 14528] |     } /* b */
+           4.144 us [ 14528] |   } /* a */
+         952.797 us [ 14528] | } /* main */
+</code>
+</pre>
+---
+class: code-20px
+### Event Tracing (sched event)
+<pre>
+<code class="plain">        $ uftrace `--no-event` tests/t-fork
+        # DURATION     TID     FUNCTION
+                    [ 14528] | main() {
+         127.033 us [ 14528] |   fork();
+                    [ 14528] |   wait() {
+
+                    [ 14540] |   } /* fork */
+                    [ 14540] |   a() {
+                    [ 14540] |     b() {
+                    [ 14540] |       c() {
+           1.507 us [ 14540] |         getpid();
+           2.987 us [ 14540] |       } /* c */
+           3.464 us [ 14540] |     } /* b */
+           3.854 us [ 14540] |   } /* a */
+          13.394 us [ 14540] | } /* main */
+
+         799.270 us [ 14528] |   } /* wait */
+                    [ 14528] |   a() {
+                    [ 14528] |     b() {
+                    [ 14528] |       c() {
+           2.410 us [ 14528] |         getpid();
+           3.470 us [ 14528] |       } /* c */
+           3.833 us [ 14528] |     } /* b */
+           4.144 us [ 14528] |   } /* a */
+         952.797 us [ 14528] | } /* main */
+</code>
+</pre>
+---
+class: code-20px
+### Event Tracing (sched event)
+<pre>
+<code class="plain">        $ uftrace `--no-event` tests/t-fork
+        # DURATION     TID     FUNCTION
+                    [ 14528] | main() {
+         127.033 us [ 14528] |   fork();
+                    [ 14528] |   wait() {
+                    [ 14540] |   } /* fork */
+                    [ 14540] |   a() {
+                    [ 14540] |     b() {
+                    [ 14540] |       c() {
+           1.507 us [ 14540] |         getpid();
+           2.987 us [ 14540] |       } /* c */
+           3.464 us [ 14540] |     } /* b */
+           3.854 us [ 14540] |   } /* a */
+          13.394 us [ 14540] | } /* main */
+         799.270 us [ 14528] |   } /* wait */
+                    [ 14528] |   a() {
+                    [ 14528] |     b() {
+                    [ 14528] |       c() {
+           2.410 us [ 14528] |         getpid();
+           3.470 us [ 14528] |       } /* c */
+           3.833 us [ 14528] |     } /* b */
+           4.144 us [ 14528] |   } /* a */
+         952.797 us [ 14528] | } /* main */
+</code>
+</pre>
+
+---
+name:end
+template: title-layout
+
+# Thanks!
+### https://github.com/namhyung/uftrace
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script>
+      var hljs = remark.highlighter.engine;
+    </script>
+    <script src="https://remarkjs.com/remark.language.js"></script>
+    <script src="uftrace.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125043112-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-125043112-1');
+    </script>
+  </body>
+</html>

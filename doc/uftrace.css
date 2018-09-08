@@ -1,0 +1,137 @@
+@import url(https://fonts.googleapis.com/css?family=Droid+Serif);
+@import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+@import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+body {
+  font-family: 'Droid Serif';
+  //font-family: 'Roboto', sans-serif;
+}
+h1, h2, h3, h4 {
+  font-family: 'Yanone Kaffeesatz';
+  //font-family: 'Roboto', sans-serif;
+  //font-family: 'Arials', serif;
+  font-weight: 400;
+  margin-bottom: 0;
+}
+.remark-slide-content h1 { font-size: 85px; min-height: 87px; }
+.remark-slide-content h2 { font-size: 60px; min-height: 62px; }
+.remark-slide-content h3 { font-size: 35px; min-height: 37px; }
+.remark-slide-content h4 { font-size: 30px; min-height: 32px; }
+.remark-slide-content {
+  background-color: #000;
+  background-size: cover;
+  background-position: center;
+  color: #f8f8f8;
+  font-size: 24px;
+  text-shadow: 0px 0px 16px #000, 0px 0px 32px #000;
+  padding: 10px 20px 10px 20px;
+}
+.remark-slide-number { font-size: 20px }
+.footnote {
+  font-size: 23px;
+  position: absolute;
+  bottom: 2em;
+  right: 1em;
+}
+.remark-container {
+  background-color: #000;
+}
+.remark-slide-scaler {
+  -moz-box-shadow: 0 0 30px #000;
+  -webkit-box-shadow: 0 0 30px #000;
+  box-shadow: 0 0 30px #000;
+}
+
+li p { line-height: 1.25em; }
+.large { font-size: 2em; }
+a, a > code {
+  color: rgb(100, 100, 255);
+  text-decoration: none;
+}
+
+/*
+code {
+  background: #e7e8e2;
+  border-radius: 5px;
+}
+*/
+
+.remark-code, .remark-inline-code { font-family: 'Ubuntu Mono', monospace; }
+.remark-code-span-highlighted     { background-color: #000; color: red; padding: 0px; }
+.remark-code-line-highlighted     { background-color: #600; }
+
+.remark-code      { font-size:  22px; }
+.remark-code-line { min-height: 24px; }
+
+.picture {
+  align: center;
+  width: 680px;
+  background-color: #FFF;
+}
+.center-image {
+  background-color: #FFF;
+  margin: 0 auto;
+  display: block;
+}
+
+/* Two-column layout */
+.left-column {
+  float: left;
+  width: 49%;
+}
+.right-column {
+  float: right;
+  width: 49%;
+}
+
+/* Code Font Size */
+.code-3px  .remark-code-line { font-size: 3px;  min-height: 5px;  }
+.code-5px  .remark-code-line { font-size: 5px;  min-height: 7px;  }
+.code-7px  .remark-code-line { font-size: 7px;  min-height: 9px;  }
+.code-8px  .remark-code-line { font-size: 8px;  min-height: 10px; }
+.code-9px  .remark-code-line { font-size: 9px;  min-height: 11px; }
+.code-10px .remark-code-line { font-size: 10px; min-height: 12px; }
+.code-11px .remark-code-line { font-size: 11px; min-height: 13px; }
+.code-12px .remark-code-line { font-size: 12px; min-height: 14px; }
+.code-13px .remark-code-line { font-size: 13px; min-height: 15px; }
+.code-14px .remark-code-line { font-size: 14px; min-height: 16px; }
+.code-15px .remark-code-line { font-size: 15px; min-height: 17px; }
+.code-16px .remark-code-line { font-size: 16px; min-height: 18px; }
+.code-17px .remark-code-line { font-size: 17px; min-height: 19px; }
+.code-18px .remark-code-line { font-size: 18px; min-height: 20px; }
+.code-19px .remark-code-line { font-size: 19px; min-height: 21px; }
+.code-20px .remark-code-line { font-size: 20px; min-height: 22px; }
+.code-21px .remark-code-line { font-size: 21px; min-height: 23px; }
+.code-22px .remark-code-line { font-size: 22px; min-height: 24px; }
+.code-23px .remark-code-line { font-size: 23px; min-height: 25px; }
+.code-24px .remark-code-line { font-size: 24px; min-height: 26px; }
+.code-25px .remark-code-line { font-size: 25px; min-height: 27px; }
+.code-26px .remark-code-line { font-size: 26px; min-height: 28px; }
+
+/* Colors */
+.red      { color: red;     }
+.green    { color: green;   }
+.blue     { color: blue;    }
+.yellow   { color: yellow;  }
+.orange   { color: orange;  }
+.grey     { color: grey;    }
+.cyan     { color: cyan;    }
+.magenta  { color: magenta; }
+x-red     { color: red;     }
+x-green   { color: green;   }
+x-blue    { color: blue;    }
+x-yellow  { color: yellow;  }
+x-orange  { color: orange;  }
+x-grey    { color: grey;    }
+x-cyan    { color: cyan;    }
+x-magenta { color: magenta; }
+
+/* for TUI pages */
+.tui .remark-code-line {
+    font-family: 'Courier New';
+    font-size: 14px;
+    min-height: 16px;
+}
+x-tui-blue-line  { background-color: blue; }
+x-tui-white-line { background-color: white; color: black; }
+

@@ -1,0 +1,2121 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
+    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <title>uftrace</title>
+    <link rel="stylesheet" href="uftrace.css" type="text/css">
+  </head>
+  <body>
+    <textarea id="source">
+name: title-layout
+layout: true
+class: center, middle, title
+
+---
+name: picture-layout
+layout: true
+class: center, middle
+
+---
+name: basic-layout
+layout: true
+class: left, top
+
+---
+name: tui
+template: title-layout
+# uftrace tui
+### (Interactive) Text-based User Interface
+.footnote[[doc/uftrace-tui.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-tui.md)]
+<pre><code class="bash">$ ./configure       
+libncursesw: [ .green[on]  ]</code></pre>
+
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+  <x-tui-white-line>    7.019 us : (1) a.out</x-tui-white-line>
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+      0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+      0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  
+  <x-tui-blue-line>uftrace graph: session c3d2c13b51a25a6b (/home/honggyu/uftrace/a.out)</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+      0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+      0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us : ┌──────────────────────────────────────────────────────────────┐
+      0.645 us : │Help: (press any key to exit)                                 │
+      0.070 us : │                                                              │
+               : │ ARROW         Navigation                                     │
+      0.549 us : │ PgUp/Dn                                                      │
+      0.379 us : │ Home/End                                                     │
+      0.047 us : │ Enter         Select/Fold                                    │
+               : │ G             Show (full) call graph                         │
+      0.042 us : │ g             Show call graph for this function              │
+               : │ R             Show uftrace report                            │
+      0.044 us : │ I             Show uftrace info                              │
+               : │ S             Change session                                 │
+      4.030 us : │ O             Open editor                                    │
+      3.838 us : │ c/e           Collapse/Expand graph                          │
+      3.653 us : │ n/p           Next/Prev sibling                              │
+      3.460 us : │ u             Move up to parent                              │
+      0.879 us : │ l             Move to the longest executed child             │
+      0.116 us : │ j/k           Move down/up                                   │
+               : │ /             Search                                         │
+      0.126 us : │ </>/N/P       Search next/prev                               │
+               : │ v             Show debug message                             │
+      1.522 us : │ h/?           Show this help                                 │
+      1.021 us : │ q             Quit                                           │
+               : │                                                              │
+      0.597 us : └──────────────────────────────────────────────────────────────┘
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us : ┌──────────────────────────────────────────────────────────────┐
+      0.645 us : │Help: (press any key to exit)                                 │
+      0.070 us : │                                                              │
+               : │ ARROW         Navigation                                     │
+      0.549 us : │ PgUp/Dn                                                      │
+      0.379 us : │ Home/End                                                     │
+      0.047 us : │ <x-red>Enter         Select/Fold</x-red>                                    │
+               : │ G             Show (full) call graph                         │
+      0.042 us : │ g             Show call graph for this function              │
+               : │ R             Show uftrace report                            │
+      0.044 us : │ I             Show uftrace info                              │
+               : │ S             Change session                                 │
+      4.030 us : │ O             Open editor                                    │
+      3.838 us : │ c/e           Collapse/Expand graph                          │
+      3.653 us : │ n/p           Next/Prev sibling                              │
+      3.460 us : │ u             Move up to parent                              │
+      0.879 us : │ l             Move to the longest executed child             │
+      0.116 us : │ j/k           Move down/up                                   │
+               : │ /             Search                                         │
+      0.126 us : │ </>/N/P       Search next/prev                               │
+               : │ v             Show debug message                             │
+      1.522 us : │ h/?           Show this help                                 │
+      1.021 us : │ q             Quit                                           │
+               : │                                                              │
+      0.597 us : └──────────────────────────────────────────────────────────────┘
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us :<x-red>▶</x-red>(1) main</x-tui-white-line>
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us :▶(1) main</x-tui-white-line>
+  &nbsp;
+  &nbsp;
+  &nbsp;
+                 ┌──────────────────────────────────────────────────────────────┐
+                 │Help: (press any key to exit)                                 │
+                 │                                                              │
+                 │ ARROW         Navigation                                     │
+                 │ PgUp/Dn                                                      │
+                 │ Home/End                                                     │
+                 │ <x-red>Enter         Select/Fold</x-red>                                    │
+                 │ G             Show (full) call graph                         │
+                 │ g             Show call graph for this function              │
+                 │ R             Show uftrace report                            │
+                 │ I             Show uftrace info                              │
+                 │ S             Change session                                 │
+                 │ O             Open editor                                    │
+                 │ c/e           Collapse/Expand graph                          │
+                 │ n/p           Next/Prev sibling                              │
+                 │ u             Move up to parent                              │
+                 │ l             Move to the longest executed child             │
+                 │ j/k           Move down/up                                   │
+                 │ /             Search                                         │
+                 │ </>/N/P       Search next/prev                               │
+                 │ v             Show debug message                             │
+                 │ h/?           Show this help                                 │
+                 │ q             Quit                                           │
+                 │                                                              │
+                 └──────────────────────────────────────────────────────────────┘
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+      0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+      0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us : ┌──────────────────────────────────────────────────────────────┐
+      0.645 us : │Help: (press any key to exit)                                 │
+      0.070 us : │                                                              │
+               : │ ARROW         Navigation                                     │
+      0.549 us : │ PgUp/Dn                                                      │
+      0.379 us : │ Home/End                                                     │
+      0.047 us : │ Enter         Select/Fold                                    │
+               : │ G             Show (full) call graph                         │
+      0.042 us : │ g             Show call graph for this function              │
+               : │ R             Show uftrace report                            │
+      0.044 us : │ I             Show uftrace info                              │
+               : │ S             Change session                                 │
+      4.030 us : │ O             Open editor                                    │
+      3.838 us : │ <x-red>c</x-red>/e           <x-red>Collapse</x-red>/Expand graph                          │
+      3.653 us : │ n/p           Next/Prev sibling                              │
+      3.460 us : │ u             Move up to parent                              │
+      0.879 us : │ l             Move to the longest executed child             │
+      0.116 us : │ j/k           Move down/up                                   │
+               : │ /             Search                                         │
+      0.126 us : │ </>/N/P       Search next/prev                               │
+               : │ v             Show debug message                             │
+      1.522 us : │ h/?           Show this help                                 │
+      1.021 us : │ q             Quit                                           │
+               : │                                                              │
+      0.597 us : └──────────────────────────────────────────────────────────────┘
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├<x-red>▶</x-red>(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └<x-red>▶</x-red>(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+                 ┌──────────────────────────────────────────────────────────────┐
+                 │Help: (press any key to exit)                                 │
+                 │                                                              │
+                 │ ARROW         Navigation                                     │
+                 │ PgUp/Dn                                                      │
+                 │ Home/End                                                     │
+                 │ Enter         Select/Fold                                    │
+                 │ G             Show (full) call graph                         │
+                 │ g             Show call graph for this function              │
+                 │ R             Show uftrace report                            │
+                 │ I             Show uftrace info                              │
+                 │ S             Change session                                 │
+                 │ O             Open editor                                    │
+                 │ c/<x-red>e</x-red>           Collapse/<x-red>Expand</x-red> graph                          │
+                 │ n/p           Next/Prev sibling                              │
+                 │ u             Move up to parent                              │
+                 │ l             Move to the longest executed child             │
+                 │ j/k           Move down/up                                   │
+                 │ /             Search                                         │
+                 │ </>/N/P       Search next/prev                               │
+                 │ v             Show debug message                             │
+                 │ h/?           Show this help                                 │
+                 │ q             Quit                                           │
+                 │                                                              │
+                 └──────────────────────────────────────────────────────────────┘
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c01e]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+      0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+      0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  
+  <x-tui-blue-line>uftrace graph: session c3d2c13b51a25a6b (/home/honggyu/uftrace/a.out)</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us : ┌──────────────────────────────────────────────────────────────┐
+      0.645 us : │Help: (press any key to exit)                                 │
+      0.070 us : │                                                              │
+               : │ ARROW         Navigation                                     │
+      0.549 us : │ PgUp/Dn                                                      │
+      0.379 us : │ Home/End                                                     │
+      0.047 us : │ Enter         Select/Fold                                    │
+               : │ G             Show (full) call graph                         │
+      0.042 us : │ g             Show call graph for this function              │
+               : │ R             Show uftrace report                            │
+      0.044 us : │ I             Show uftrace info                              │
+               : │ S             Change session                                 │
+      4.030 us : │ O             Open editor                                    │
+      3.838 us : │ c/e           Collapse/Expand graph                          │
+      3.653 us : │ n/p           Next/Prev sibling                              │
+      3.460 us : │ u             Move up to parent                              │
+      0.879 us : │ <x-red>l             Move to the longest executed child</x-red>             │
+      0.116 us : │ j/k           Move down/up                                   │
+               : │ /             Search                                         │
+      0.126 us : │ </>/N/P       Search next/prev                               │
+               : │ v             Show debug message                             │
+      1.522 us : │ h/?           Show this help                                 │
+      1.021 us : │ q             Quit                                           │
+               : │                                                              │
+      0.597 us : └──────────────────────────────────────────────────────────────┘
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+      0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+      0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      <x-red>2.181 us</x-red> :  ├<x-red>▶</x-red>(2) std::shared_ptr::shared_ptr
+               :  │
+  <x-tui-white-line>    <x-red>4.030 us</x-red> :  └─(2) std::shared_ptr::~shared_ptr</x-tui-white-line>
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bf8e]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+  <x-tui-white-line>    3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr</x-tui-white-line>
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bf68]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+  <x-tui-white-line>    3.653 us :    (2) std::\__shared_count::~\__shared_count</x-tui-white-line>
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c04a]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+  <x-tui-white-line>    3.460 us :    (2) std::_Sp_counted_base::_M_release</x-tui-white-line>
+      0.879 us :     ├─(3) \__gnu_cxx::\__exchange_and_add_dispatch
+      0.116 us :     │  ├─(3) \__gthread_active_p
+               :     │  │
+      0.126 us :     │  └─(3) \__gnu_cxx::\__exchange_and_add
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └─(1) std::_Sp_counted_ptr::_M_destroy
+      0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.217 us :        ├─(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+      0.041 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
+               :        │
+      0.068 us :        └─(1) operator delete
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c04a]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      <x-red>0.879 us</x-red> :     ├<x-red>▶</x-red>(3) \__gnu_cxx::\__exchange_and_add_dispatch
+               :     │
+  <x-tui-white-line>    <x-red>1.522 us</x-red> :     ├─(1) std::_Sp_counted_ptr::_M_dispose</x-tui-white-line>
+      1.021 us :     │ (1) operator delete
+               :     │
+      <x-red>0.597 us</x-red> :     └<x-red>▶</x-red>(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c41c]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├▶(3) \__gnu_cxx::\__exchange_and_add_dispatch
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+  <x-tui-white-line>    1.021 us :     │ (1) operator delete</x-tui-white-line>
+               :     │
+      0.597 us :     └▶(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c41c]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us : ┌──────────────────────────────────────────────────────────────┐
+      3.653 us : │Help: (press any key to exit)                                 │
+      3.460 us : │                                                              │
+      0.879 us : │ ARROW         Navigation                                     │
+               : │ PgUp/Dn                                                      │
+      1.522 us : │ Home/End                                                     │
+      1.021 us : │ Enter         Select/Fold                                    │
+               : │ G             Show (full) call graph                         │
+      0.597 us : │ g             Show call graph for this function              │
+                 │ R             Show uftrace report                            │
+                 │ I             Show uftrace info                              │
+                 │ S             Change session                                 │
+                 │ O             Open editor                                    │
+                 │ c/e           Collapse/Expand graph                          │
+                 │ n/p           Next/Prev sibling                              │
+                 │ u             Move up to parent                              │
+                 │ l             Move to the longest executed child             │
+                 │ j/k           Move down/up                                   │
+                 │ /             Search                                         │
+                 │ </>/N/P       Search next/prev                               │
+                 │ v             Show debug message                             │
+                 │ h/?           Show this help                                 │
+                 │ q             Quit                                           │
+                 │                                                              │
+                 └──────────────────────────────────────────────────────────────┘
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bbb0]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us : ┌──────────────────────────────────────────────────────────────┐
+      3.653 us : │Help: (press any key to exit)                                 │
+      3.460 us : │                                                              │
+      0.879 us : │ ARROW         Navigation                                     │
+               : │ PgUp/Dn                                                      │
+      1.522 us : │ Home/End                                                     │
+      1.021 us : │ Enter         Select/Fold                                    │
+               : │ G             Show (full) call graph                         │
+      0.597 us : │ g             Show call graph for this function              │
+                 │ R             Show uftrace report                            │
+                 │ I             Show uftrace info                              │
+                 │ S             Change session                                 │
+                 │ O             Open editor                                    │
+                 │ c/e           Collapse/Expand graph                          │
+                 │ n/p           Next/Prev sibling                              │
+                 │ <x-red>u             Move up to parent</x-red>                              │
+                 │ l             Move to the longest executed child             │
+                 │ j/k           Move down/up                                   │
+                 │ /             Search                                         │
+                 │ </>/N/P       Search next/prev                               │
+                 │ v             Show debug message                             │
+                 │ h/?           Show this help                                 │
+                 │ q             Quit                                           │
+                 │                                                              │
+                 └──────────────────────────────────────────────────────────────┘
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bbb0]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├▶(3) \__gnu_cxx::\__exchange_and_add_dispatch
+               :     │
+      1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose
+  <x-tui-white-line>    1.021 us :     │ (1) operator delete</x-tui-white-line>
+               :     │
+      0.597 us :     └▶(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c41c]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+      3.460 us :    (2) std::_Sp_counted_base::_M_release
+      0.879 us :     ├▶(3) \__gnu_cxx::\__exchange_and_add_dispatch
+               :     │
+  <x-tui-white-line>    1.522 us :     ├─(1) std::_Sp_counted_ptr::_M_dispose</x-tui-white-line>
+      1.021 us :     │ (1) operator delete
+               :     │
+      0.597 us :     └▶(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c41c]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+      3.653 us :    (2) std::\__shared_count::~\__shared_count
+  <x-tui-white-line>    3.460 us :    (2) std::_Sp_counted_base::_M_release</x-tui-white-line>
+      0.879 us :     ├▶(3) \__gnu_cxx::\__exchange_and_add_dispatch
+               :     │
+      1.522 us :     ├▶(1) std::_Sp_counted_ptr::_M_dispose
+               :     │
+      0.597 us :     └▶(1) std::_Sp_counted_ptr::_M_destroy
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c118]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+      3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr
+  <x-tui-white-line>    3.653 us :    (2) std::\__shared_count::~\__shared_count</x-tui-white-line>
+      3.460 us :   ▶(2) std::_Sp_counted_base::_M_release
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c04a]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └─(2) std::shared_ptr::~shared_ptr
+  <x-tui-white-line>    3.838 us :    (2) std::\__shared_ptr::~\__shared_ptr</x-tui-white-line>
+      3.653 us :   ▶(2) std::\__shared_count::~\__shared_count
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bf68]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+  <x-tui-white-line>    4.030 us :  └─(2) std::shared_ptr::~shared_ptr</x-tui-white-line>
+      3.838 us :   ▶(2) std::\__shared_ptr::~\__shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bf8e]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+  <x-tui-white-line>    7.019 us : (1) main</x-tui-white-line>
+      2.181 us :  ├▶(2) std::shared_ptr::shared_ptr
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+  <x-tui-white-line>    2.181 us :  ├▶(2) std::shared_ptr::shared_ptr</x-tui-white-line>
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8bee9]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+  <x-tui-white-line>    2.181 us :  ├▶(2) std::shared_ptr::shared_ptr</x-tui-white-line>
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+                 ┌──────────────────────────────────────────────────────────────┐
+                 │Help: (press any key to exit)                                 │
+                 │                                                              │
+                 │ ARROW         Navigation                                     │
+                 │ PgUp/Dn                                                      │
+                 │ Home/End                                                     │
+                 │ Enter         Select/Fold                                    │
+                 │ G             Show (full) call graph                         │
+                 │ g             Show call graph for this function              │
+                 │ R             Show uftrace report                            │
+                 │ I             Show uftrace info                              │
+                 │ S             Change session                                 │
+                 │ O             Open editor                                    │
+                 │ c/e           Collapse/Expand graph                          │
+                 │ n/p           Next/Prev sibling                              │
+                 │ u             Move up to parent                              │
+                 │ <x-red>l             Move to the longest executed child</x-red>             │
+                 │ j/k           Move down/up                                   │
+                 │ /             Search                                         │
+                 │ </>/N/P       Search next/prev                               │
+                 │ v             Show debug message                             │
+                 │ h/?           Show this help                                 │
+                 │ q             Quit                                           │
+                 │                                                              │
+                 └──────────────────────────────────────────────────────────────┘
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c01e]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+  <x-tui-white-line>    1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr</x-tui-white-line>
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c364]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+  <x-tui-white-line>    1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count</x-tui-white-line>
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c364]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+  <x-tui-white-line>    0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr</x-tui-white-line>
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c364]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+  <x-tui-white-line>    0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base</x-tui-white-line>
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: source location is not available [at 0x562731a8c364]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+  <x-tui-white-line>    0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base</x-tui-white-line>
+               :  │  │  │
+      0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/6/bits/shared_ptr_base.h [line:89]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us : ┌──────────────────────────────────────────────────────────────┐
+      0.645 us : │Help: (press any key to exit)                                 │
+      0.070 us : │                                                              │
+               : │ ARROW         Navigation                                     │
+      0.549 us : │ PgUp/Dn                                                      │
+               : │ Home/End                                                     │
+      0.044 us : │ Enter         Select/Fold                                    │
+               : │ G             Show (full) call graph                         │
+      4.030 us : │ g             Show call graph for this function              │
+                 │ R             Show uftrace report                            │
+                 │ I             Show uftrace info                              │
+                 │ S             Change session                                 │
+                 │ <x-red>O             Open editor</x-red>                                    │
+                 │ c/e           Collapse/Expand graph                          │
+                 │ n/p           Next/Prev sibling                              │
+                 │ u             Move up to parent                              │
+                 │ l             Move to the longest executed child             │
+                 │ j/k           Move down/up                                   │
+                 │ /             Search                                         │
+                 │ </>/N/P       Search next/prev                               │
+                 │ v             Show debug message                             │
+                 │ h/?           Show this help                                 │
+                 │ q             Quit                                           │
+                 │                                                              │
+                 └──────────────────────────────────────────────────────────────┘
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: <x-red>/usr/include/c++/6/bits/shared_ptr_base.h</x-red> [<x-red>line:89</x-red>]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+  <x-tui-white-line>    0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base</x-tui-white-line>
+               :  │  │  │
+      0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: <x-red>/usr/include/c++/6/bits/shared_ptr_base.h</x-red> [<x-red>line:89</x-red>]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+.footnote[Open editor]
+```cpp
+    73     virtual ~bad_weak_ptr() noexcept;
+    74   };
+    75 
+    76   // Substitute for bad_weak_ptr object in the case of -fno-exceptions.
+    77   inline void
+    78   __throw_bad_weak_ptr()
+    79   { _GLIBCXX_THROW_OR_ABORT(bad_weak_ptr()); }
+    80 
+    81   using __gnu_cxx::_Lock_policy;
+    82   using __gnu_cxx::__default_lock_policy;
+    83   using __gnu_cxx::_S_single;
+    84   using __gnu_cxx::_S_mutex;
+    85   using __gnu_cxx::_S_atomic;
+    86 
+    87   // Empty helper class except when the template argument is _S_mutex.
+    88   template<_Lock_policy _Lp>
+*   89     class _Mutex_base
+    90     {
+    91     protected:
+    92       // The atomic policy uses fully-fenced builtins, single doesn't care.
+    93       enum { _S_need_barriers = 0 };
+    94     };
+    95 
+    96   template<>
+    97     class _Mutex_base<_S_mutex>
+    98     : public __gnu_cxx::__mutex
+    99     {
+   100     protected:
+   101       // This policy is used when atomic builtins are not available.
+   102       // The replacement atomic operations might not have the necessary
+   103       // memory barriers.
+   104       enum { _S_need_barriers = 1 };
+   105     };
+   106 
+   107   template<_Lock_policy _Lp = __default_lock_policy>
+   108     class _Sp_counted_base
+  "/usr/include/c++/6/bits/shared_ptr_base.h" [readonly] 1599L, 45675C
+```
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+  <x-tui-white-line>    0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base</x-tui-white-line>
+               :  │  │  │
+      0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/6/bits/shared_ptr_base.h [line:89]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+  <x-tui-white-line>    0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy</x-tui-white-line>
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/6/bits/shared_ptr_base.h [line:133]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+.footnote[Open editor]
+```cpp
+   116       ~_Sp_counted_base() noexcept
+   117       { }
+   118 
+   119       // Called when _M_use_count drops to zero, to release the resources
+   120       // managed by *this.
+   121       virtual void
+   122       _M_dispose() noexcept = 0;
+   123 
+   124       // Called when _M_weak_count drops to zero.
+   125       virtual void
+   126       _M_destroy() noexcept
+   127       { delete this; }
+   128 
+   129       virtual void*
+   130       _M_get_deleter(const std::type_info&) noexcept = 0;
+   131 
+   132       void
+*  133       _M_add_ref_copy()
+   134       { __gnu_cxx::__atomic_add_dispatch(&_M_use_count, 1); }
+   135 
+   136       void
+   137       _M_add_ref_lock();
+   138 
+   139       bool
+   140       _M_add_ref_lock_nothrow();
+   141 
+   142       void
+   143       _M_release() noexcept
+   144       {
+   145         // Be race-detector-friendly.  For more info see bits/c++config.
+   146         _GLIBCXX_SYNCHRONIZATION_HAPPENS_BEFORE(&_M_use_count);
+   147         if (__gnu_cxx::__exchange_and_add_dispatch(&_M_use_count, -1) == 1)
+   148           {
+   149             _GLIBCXX_SYNCHRONIZATION_HAPPENS_AFTER(&_M_use_count);
+   150             _M_dispose();
+   151             // There must be a memory barrier between dispose() and destroy()
+  "/usr/include/c++/6/bits/shared_ptr_base.h" [readonly] 1599L, 45675C
+```
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+  <x-tui-white-line>    0.549 us :  │  │  └▶(1) std::_Sp_counted_base::_M_add_ref_copy</x-tui-white-line>
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/6/bits/shared_ptr_base.h [line:133]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+  <x-tui-white-line>    0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch</x-tui-white-line>
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+      0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/6/ext/atomicity.h [line:93]</x-tui-blue-line>
+</pre>
+</code>
+---
+class: tui
+.footnote[Open editor]
+```cpp
+   76   static inline _Atomic_word
+   77   __attribute__ ((__unused__))
+   78   __exchange_and_add_dispatch(_Atomic_word* __mem, int __val)
+   79   {
+   80 #ifdef __GTHREADS
+   81     if (__gthread_active_p())
+   82       return __exchange_and_add(__mem, __val);
+   83     else
+   84       return __exchange_and_add_single(__mem, __val);
+   85 #else
+   86     return __exchange_and_add_single(__mem, __val);
+   87 #endif
+   88   }
+   89 
+   90   static inline void
+   91   __attribute__ ((__unused__))
+*  92   __atomic_add_dispatch(_Atomic_word* __mem, int __val)
+   93   {
+   94 #ifdef __GTHREADS
+   95     if (__gthread_active_p())
+   96       __atomic_add(__mem, __val);
+   97     else
+   98       __atomic_add_single(__mem, __val);
+   99 #else
+  100     __atomic_add_single(__mem, __val);
+  101 #endif
+  102   }
+  103 
+  104 _GLIBCXX_END_NAMESPACE_VERSION
+  105 } // namespace
+  106 
+  107 // Even if the CPU doesn't need a memory barrier, we need to ensure
+  108 // that the compiler doesn't reorder memory accesses across the
+  109 // barriers.
+  110 #ifndef _GLIBCXX_READ_MEM_BARRIER
+  111 #define _GLIBCXX_READ_MEM_BARRIER __atomic_thread_fence (__ATOMIC_ACQUIRE)
+  "/usr/include/c++/6/ext/atomicity.h" [readonly] 117L, 3509C
+```
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+  <x-tui-white-line>    0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch</x-tui-white-line>
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+      0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/6/ext/atomicity.h [line:93]</x-tui-blue-line>
+</pre>
+</code>
+
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+      0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+  <x-tui-white-line>    0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add</x-tui-white-line>
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/6/ext/atomicity.h [line:53]</x-tui-blue-line>
+</pre>
+</code>
+
+---
+class: tui
+.footnote[Open editor]
+```cpp
+   36 #include <bits/atomic_word.h>
+   37 
+   38 namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
+   39 {
+   40 _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   41 
+   42   // Functions for portable atomic access.
+   43   // To abstract locking primitives across all thread policies, use:
+   44   // __exchange_and_add_dispatch
+   45   // __atomic_add_dispatch
+   46 #ifdef _GLIBCXX_ATOMIC_BUILTINS
+   47   static inline _Atomic_word
+   48   __exchange_and_add(volatile _Atomic_word* __mem, int __val)
+   49   { return __atomic_fetch_add(__mem, __val, __ATOMIC_ACQ_REL); }
+   50 
+   51   static inline void
+   52   __atomic_add(volatile _Atomic_word* __mem, int __val)
+*  53   { __atomic_fetch_add(__mem, __val, __ATOMIC_ACQ_REL); }
+   54 #else
+   55   _Atomic_word
+   56   __attribute__ ((__unused__))
+   57   __exchange_and_add(volatile _Atomic_word*, int) throw ();
+   58 
+   59   void
+   60   __attribute__ ((__unused__))
+   61   __atomic_add(volatile _Atomic_word*, int) throw ();
+   62 #endif
+   63 
+   64   static inline _Atomic_word
+   65   __exchange_and_add_single(_Atomic_word* __mem, int __val)
+   66   {
+   67     _Atomic_word __result = *__mem;
+   68     *__mem += __val;
+   69     return __result;
+   70   }
+   71 
+  "/usr/include/c++/6/ext/atomicity.h" [readonly] 117L, 3509C
+```
+---
+class: tui
+<pre>
+<code class="plain">  <x-tui-blue-line>  TOTAL TIME : FUNCTION</x-tui-blue-line>
+      7.019 us : (1) a.out
+      7.019 us : (1) main
+      2.181 us :  ├─(2) std::shared_ptr::shared_ptr
+      1.949 us :  │ (2) std::\__shared_ptr::\__shared_ptr
+      1.602 us :  │  ├─(2) std::\__shared_count::\__shared_count
+      0.780 us :  │  │  ├─(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+      0.645 us :  │  │  │ (1) std::_Sp_counted_base::_Sp_counted_base
+      0.070 us :  │  │  │ (1) std::_Mutex_base::_Mutex_base
+               :  │  │  │
+      0.549 us :  │  │  └─(1) std::_Sp_counted_base::_M_add_ref_copy
+      0.379 us :  │  │    (1) \__gnu_cxx::\__atomic_add_dispatch
+      0.047 us :  │  │     ├─(1) \__gthread_active_p
+               :  │  │     │
+  <x-tui-white-line>    0.042 us :  │  │     └─(1) \__gnu_cxx::\__atomic_add</x-tui-white-line>
+               :  │  │
+      0.044 us :  │  └─(1) std::\__enable_shared_from_this_helper
+               :  │
+      4.030 us :  └▶(2) std::shared_ptr::~shared_ptr
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  &nbsp;
+  <x-tui-blue-line>uftrace graph: /usr/include/c++/6/ext/atomicity.h [line:53]</x-tui-blue-line>
+</pre>
+</code>
+
+---
+name:end
+template: title-layout
+
+# Thanks!
+### https://github.com/namhyung/uftrace
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script>
+      var hljs = remark.highlighter.engine;
+    </script>
+    <script src="https://remarkjs.com/remark.language.js"></script>
+    <script src="uftrace.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125043112-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-125043112-1');
+    </script>
+  </body>
+</html>

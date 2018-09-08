@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
+    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <title>uftrace</title>
+    <link rel="stylesheet" href="uftrace.css" type="text/css">
+  </head>
+  <body>
+    <textarea id="source">
+name: title-layout
+layout: true
+class: center, middle, title
+
+---
+name: picture-layout
+layout: true
+class: center, middle
+
+---
+name: basic-layout
+layout: true
+class: left, top
+
+---
+name: args
+template: title-layout
+## Display Function Arguments
+.footnote[[wiki/Tutorial:-Arguments](https://github.com/namhyung/uftrace/wiki/Tutorial:-Arguments)]
+
+---
+### 
+```
+    $ gcc -pg fibonacci.c
+```
+---
+### 
+```
+    $ gcc -pg fibonacci.c
+    $ uftrace a.out 5
+    fib(5) = 5
+```
+---
+### 
+```
+    $ gcc -pg fibonacci.c
+    $ uftrace a.out 5
+    fib(5) = 5
+    # DURATION    TID     FUNCTION
+                [31321] | main() {
+       1.478 us [31321] |   atoi();
+                [31321] |   fib() {
+                [31321] |     fib() {
+                [31321] |       fib() {
+       0.155 us [31321] |         fib();
+       0.123 us [31321] |         fib();
+       0.883 us [31321] |       } /* fib */
+       0.125 us [31321] |       fib();
+       1.483 us [31321] |     } /* fib */
+                [31321] |     fib() {
+       0.125 us [31321] |       fib();
+       0.125 us [31321] |       fib();
+       0.774 us [31321] |     } /* fib */
+       2.716 us [31321] |   } /* fib */
+       4.382 us [31321] |   printf();
+       9.456 us [31321] | } /* main */
+```
+---
+### Record function arguments with -A / --argument
+```
+    $ gcc -pg fibonacci.c
+    $ uftrace `-A fib@arg1` a.out 5
+    fib(5) = 5
+    # DURATION    TID     FUNCTION
+                [31321] | main() {
+       1.478 us [31321] |   atoi();
+                [31321] |   fib(`5`) {
+                [31321] |     fib(`4`) {
+                [31321] |       fib(`3`) {
+       0.155 us [31321] |         fib(`2`);
+       0.123 us [31321] |         fib(`1`);
+       0.883 us [31321] |       } /* fib */
+       0.125 us [31321] |       fib(`2`);
+       1.483 us [31321] |     } /* fib */
+                [31321] |     fib(`3`) {
+       0.125 us [31321] |       fib(`2`);
+       0.125 us [31321] |       fib(`1`);
+       0.774 us [31321] |     } /* fib */
+       2.716 us [31321] |   } /* fib */
+       4.382 us [31321] |   printf();
+       9.456 us [31321] | } /* main */
+```
+---
+### Record function return values with -R / --retval
+```
+    $ gcc -pg fibonacci.c
+    $ uftrace -A fib@arg1 `-R fib@retval` a.out 5
+    fib(5) = 5
+    # DURATION    TID     FUNCTION
+                [31321] | main() {
+       1.478 us [31321] |   atoi();
+                [31321] |   fib(5) {
+                [31321] |     fib(4) {
+                [31321] |       fib(3) {
+       0.155 us [31321] |         fib(2) `= 1`;
+       0.123 us [31321] |         fib(1) `= 1`;
+       0.883 us [31321] |       } = `2`; /* fib */
+       0.125 us [31321] |       fib(2) `= 1`;
+       1.483 us [31321] |     } `= 3`; /* fib */
+                [31321] |     fib(3) {
+       0.125 us [31321] |       fib(2) `= 1`;
+       0.125 us [31321] |       fib(1) `= 1`;
+       0.774 us [31321] |     } `= 2`; /* fib */
+       2.716 us [31321] |   } `= 5`; /* fib */
+       4.382 us [31321] |   printf();
+       9.456 us [31321] | } /* main */
+```
+---
+class: code-18px
+### Display Function Arguments
+- uftrace can record function arguments and return values
+  - using the .red[-A]/.red[--argument] and .red[-R]/.red[--retval] options.
+
+```
+    <argument>    :=  <symbol> "@" <specs>
+    <specs>       :=  <spec> | <spec> "," <spec>
+    <spec>        :=  ( <int_spec> | <float_spec> | <ret_spec> )
+    <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
+    <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
+    <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
+    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <size>        :=  "8" | "16" | "32" | "64"
+    <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
+    <stack>       :=  "stack" [ "+" ] <offset>
+```
+---
+class: code-18px
+### Display Function Arguments
+```
+    $ uftrace -A fib@arg1 -R fib@retval a.out 5
+
+
+    <argument>    :=  <symbol> "@" <specs>
+    <specs>       :=  <spec> | <spec> "," <spec>
+    <spec>        :=  ( <int_spec> | <float_spec> | <ret_spec> )
+    <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
+    <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
+    <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
+    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <size>        :=  "8" | "16" | "32" | "64"
+    <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
+    <stack>       :=  "stack" [ "+" ] <offset>
+```
+---
+class: code-18px
+### Display Function Arguments
+```
+    $ uftrace -A `fib`@arg1 -R `fib`@retval a.out 5
+
+
+    <argument>    :=  `<symbol>` "@" <specs>
+    <specs>       :=  <spec> | <spec> "," <spec>
+    <spec>        :=  ( <int_spec> | <float_spec> | <ret_spec> )
+    <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
+    <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
+    <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
+    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <size>        :=  "8" | "16" | "32" | "64"
+    <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
+    <stack>       :=  "stack" [ "+" ] <offset>
+```
+</span>
+---
+class: code-18px
+### Display Function Arguments
+```
+    $ uftrace -A fib@`arg1` -R fib@`retval` a.out 5
+
+
+    <argument>    :=  <symbol> "@" `<specs>`
+    <specs>       :=  `<spec>` | <spec> "," <spec>
+    <spec>        :=  ( <int_spec> | <float_spec> | <ret_spec> )
+    <int_spec>    :=  "`arg`" `N` [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
+    <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
+    <ret_spec>    :=  "`retval`" [ "/" <format> [ <size> ] ]
+    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <size>        :=  "8" | "16" | "32" | "64"
+    <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
+    <stack>       :=  "stack" [ "+" ] <offset>
+```
+---
+class: code-18px
+### Display Function Arguments
+```
+    $ uftrace -A fib@arg1 -R fib@retval a.out 5
+
+
+    <argument>    :=  <symbol> "@" <specs>
+    <specs>       :=  <spec> | <spec> "," <spec>
+    <spec>        :=  ( <int_spec> | <float_spec> | <ret_spec> )
+    <int_spec>    :=  "arg" N [ "`/`" `<format>` [ `<size>` ] ] [ "%" ( <reg> | <stack> ) ]
+    <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
+    <ret_spec>    :=  "retval" [ "`/`" `<format>` [ `<size>` ] ]
+    `<format>`      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    `<size>`        :=  "8" | "16" | "32" | "64"
+    <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
+    <stack>       :=  "stack" [ "+" ] <offset>
+```
+
+---
+name: autoargs
+template: title-layout
+## Arguments Detection with Debug Info
+#### -a / --auto-args option
+.footnote[[wiki/Tutorial:-Arguments](https://github.com/namhyung/uftrace/wiki/Tutorial:-Arguments)]
+<pre><code class="bash">$ ./configure 
+libdw: [ .green[on]  ]</code></pre>
+
+---
+### Detect function types using debug info with -a / --auto-args
+```
+    $ gcc -pg fibonacci.c
+```
+---
+### Detect function types using debug info with -a / --auto-args
+.footnote[gcc .red[-g] produces debug info ([DWARF](http://dwarfstd.org))]
+```
+    $ gcc -pg `-g` fibonacci.c
+```
+---
+### Detect function types using debug info with -a / --auto-args
+.footnote[.red[-a]/.red[--auto-args] uses debug info to detect type info of user functions]
+```
+    $ gcc -pg `-g` fibonacci.c
+    $ uftrace `-a` a.out 5
+```
+---
+### Detect function types using debug info with -a / --auto-args
+<pre><code>    $ gcc -pg `-g` fibonacci.c
+    $ uftrace `-a` a.out 5
+    <x-orange>fib(5) = 5</x-orange>
+    # DURATION    TID     FUNCTION
+                [31321] | main(`2`, `0x7ffd62a92a18`) {
+       1.478 us [31321] |   atoi();
+                [31321] |   fib(`5`) {
+                [31321] |     fib(`4`) {
+                [31321] |       fib(`3`) {
+       0.155 us [31321] |         fib(`2`) `= 1`;
+       0.123 us [31321] |         fib(`1`) `= 1`;
+       0.883 us [31321] |       } = `2`; /* fib */
+       0.125 us [31321] |       fib(`2`) `= 1`;
+       1.483 us [31321] |     } `= 3`; /* fib */
+                [31321] |     fib(`3`) {
+       0.125 us [31321] |       fib(`2`) `= 1`;
+       0.125 us [31321] |       fib(`1`) `= 1`;
+       0.774 us [31321] |     } `= 2`; /* fib */
+       2.716 us [31321] |   } `= 5`; /* fib */
+       4.382 us [31321] |   printf(<x-orange>"fib(%d) = %d\n"</x-orange>) `= 11`;
+       9.456 us [31321] | } `= 0`; /* main */
+</code></pre>
+
+---
+name:end
+template: title-layout
+
+# Thanks!
+### https://github.com/namhyung/uftrace
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+    <script>
+      var hljs = remark.highlighter.engine;
+    </script>
+    <script src="https://remarkjs.com/remark.language.js"></script>
+    <script src="uftrace.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-125043112-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-125043112-1');
+    </script>
+  </body>
+</html>
