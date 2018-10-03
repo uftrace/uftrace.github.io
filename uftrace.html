@@ -2462,42 +2462,384 @@ libpython2.7: [ .green[on]  ]</code></pre>
 ### uftrace script
 - uftrace is able to run (python) script
   - at the entry and exit for each user and library function
-  - <x-red>UFTRACE_FUNCS</x-red> = ["foo", "bar", ...]
-      - script is called only for the specified functions.
-      - to reduce overhead of script invocation.
 ---
 ### uftrace script
 - uftrace is able to run (python) script
   - at the entry and exit for each user and library function
-  - <x-red>UFTRACE_FUNCS</x-red> = ["foo", "bar", ...]
-      - script is called only for the specified functions.
-      - to reduce overhead of script invocation.
 
 
 - Script can be executed
   - at runtime (record time)
       - execute a given script at record time.
-      - able to perform additional actions, but slow
+      - able to perform additional actions while target binary execution.
+          - but slow
   - at analysis time (post processing)
       - run a given script for a recorded data (uftrace.data)
-      - using "uftrace <x-red>script</x-red>" command
-      - fast and reliable
+      - using [uftrace script](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-script.md) command
+      - faster and more reliable
 
 ---
 ### uftrace script
 - uftrace script (python) APIs
-  - uftrace_entry(ctx)
-  - uftrace_exit(ctx)
-  - uftrace_begin(ctx)
-  - uftrace_end()
+  - `uftrace_entry`(.red[ctx])
+      - runs at the entry of each function
+  - `uftrace_exit`(.red[ctx])
+      - runs at the exit of each function
+  - `uftrace_begin`(.red[ctx])
+      - runs only once at the beginning of program
+      - optional, so can be omitted
+  - `uftrace_end`()
+      - runs only once at the end of program
+      - optional, so can be omitted
+
+
+- The .red[ctx] variable is a dictionary type.
+  - including function name, tid, timestamp, etc.
+
 ---
 class: code-20px
-### uftrace script
+### A Simple Python Script (simple.py)
+```
+    $ uftrace tests/t-abc
+```
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+```
+    $ uftrace tests/t-abc
+    # DURATION     TID     FUNCTION
+                [ 89491] | main() {
+                [ 89491] |   a() {
+                [ 89491] |     b() {
+                [ 89491] |       c() {
+       4.993 us [ 89491] |         getpid();
+      17.374 us [ 89491] |       } /* c */
+      25.934 us [ 89491] |     } /* b */
+      35.023 us [ 89491] |   } /* a */
+      52.927 us [ 89491] | } /* main */
+```
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace `-S scripts/simple.py` tests/t-abc
+```
+]
+.right-column[
+```
+
+
+    $ cat `scripts/simple.py`
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    `program begins...`
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    `def uftrace_begin(ctx):`
+    `    print("program begins...")`
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+    `entry : main()`
+    `entry : a()`
+    `entry : b()`
+    `entry : c()`
+    `entry : getpid()`
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    `def uftrace_entry(ctx):`
+    `    func = ctx["name"]`
+    `    print("entry : " + func + "()")`
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+    entry : main()
+    entry : a()
+    entry : b()
+    entry : c()
+    entry : getpid()
+    `exit  : getpid()`
+    `exit  : c()`
+    `exit  : b()`
+    `exit  : a()`
+    `exit  : main()`
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    `def uftrace_exit(ctx):`
+    `    func = ctx["name"]`
+    `    print("exit  : " + func + "()")`
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+    entry : main()
+    entry : a()
+    entry : b()
+    entry : c()
+    entry : getpid()
+    exit  : getpid()
+    exit  : c()
+    exit  : b()
+    exit  : a()
+    exit  : main()
+    `program is finished`
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    `def uftrace_end():`
+    `    print("program is finished")`
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+    entry : main()
+    entry : a()
+    entry : b()
+    entry : c()
+    entry : getpid()
+    exit  : getpid()
+    exit  : c()
+    exit  : b()
+    exit  : a()
+    exit  : main()
+    program is finished
+    # DURATION     TID     FUNCTION
+                [ 89491] | main() {
+                [ 89491] |   a() {
+                [ 89491] |     b() {
+                [ 89491] |       c() {
+       4.993 us [ 89491] |         getpid();
+      17.374 us [ 89491] |       } /* c */
+      25.934 us [ 89491] |     } /* b */
+      35.023 us [ 89491] |   } /* a */
+      52.927 us [ 89491] | } /* main */
+```
+]
+.right-column[
+```
+
+
+    $ cat scripts/simple.py
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    program begins...
+//    entry : main()
+//    entry : a()
+    entry : `b`()
+//    entry : c()
+    entry : `getpid`()
+    exit  : `getpid`()
+//    exit  : c()
+    exit  : `b`()
+//    exit  : a()
+//    exit  : main()
+    program is finished
+    # DURATION     TID     FUNCTION
+                [ 89491] | main() {
+                [ 89491] |   a() {
+                [ 89491] |     `b`() {
+                [ 89491] |       c() {
+       4.993 us [ 89491] |         `getpid`();
+      17.374 us [ 89491] |       } /* c */
+      25.934 us [ 89491] |     } /* b */
+      35.023 us [ 89491] |   } /* a */
+      52.927 us [ 89491] | } /* main */
+```
+]
+.right-column[
+```
+
+
+    `UFTRACE_FUNCS = ["b", "getpid"]`
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### A Simple Python Script (simple.py)
+.left-column[
+```
+    $ uftrace -S scripts/simple.py tests/t-abc
+    `program begins...`
+    `entry : b()`
+    `entry : getpid()`
+    `exit  : getpid()`
+    `exit  : b()`
+    `program is finished`
+    # DURATION     TID     FUNCTION
+                [ 89491] | main() {
+                [ 89491] |   a() {
+                [ 89491] |     `b`() {
+                [ 89491] |       c() {
+       4.993 us [ 89491] |         `getpid`();
+      17.374 us [ 89491] |       } /* c */
+      25.934 us [ 89491] |     } /* b */
+      35.023 us [ 89491] |   } /* a */
+      52.927 us [ 89491] | } /* main */
+```
+]
+.right-column[
+```
+
+
+    `UFTRACE_FUNCS = ["b", "getpid"]`
+    def uftrace_begin(ctx):
+        print("program begins...")
+
+    def uftrace_entry(ctx):
+        func = ctx["name"]
+        print("entry : " + func + "()")
+
+    def uftrace_exit(ctx):
+        func = ctx["name"]
+        print("exit  : " + func + "()")
+
+    def uftrace_end():
+        print("program is finished")
+```
+]
+---
+class: code-20px
+### Arguments Passing in Python Script
 - uftrace script (python) APIs
-  - uftrace_entry(.red[ctx])
-  - uftrace_exit(.red[ctx])
-  - uftrace_begin(.red[ctx])
-  - uftrace_end()
+  - `uftrace_entry`(.red[ctx])
+  - `uftrace_exit`(.red[ctx])
+  - `uftrace_begin`(.red[ctx])
+  - `uftrace_end`()
 
 ```sh
     /* context info passed to uftrace_entry(`ctx`) and uftrace_exit(`ctx`) */
@@ -2519,22 +2861,21 @@ class: code-20px
         string    args;        # excution arguments info
     };
 ```
-
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 ```
     $ uftrace record tests/t-abc
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 ```
     $ uftrace record `-S scripts/dump.py` tests/t-abc
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed by .red[uftrace_begin(ctx)]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
@@ -2545,7 +2886,7 @@ class: code-20px
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed using .red[ctx["recording"]]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
@@ -2556,7 +2897,7 @@ class: code-20px
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed using .red[ctx["version"]]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
@@ -2567,7 +2908,7 @@ class: code-20px
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed using .red[ctx["args"]]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
@@ -2578,7 +2919,7 @@ class: code-20px
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed by .red[uftrace_entry(ctx)]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
@@ -2588,8 +2929,8 @@ class: code-20px
       args    : tests/t-abc
 
     `18267435.348824687  87238: [entry] main(40072a) depth: 0`
-      args[0] <type 'long'>: 1
-      args[1] <type 'long'>: 140731679137864
+    `  args[0] <type 'long'>: 1`
+    `  args[1] <type 'long'>: 140731679137864`
     `18267435.348891549  87238: [entry] a(4006cf) depth: 1`
     `18267435.348912748  87238: [entry] b(4006e2) depth: 2`
     `18267435.348926465  87238: [entry] c(4006f5) depth: 3`
@@ -2597,7 +2938,102 @@ class: code-20px
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
+.footnote[printed using .red[ctx["timestamp"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    `18267435.348824687`  87238: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    `18267435.348891549`  87238: [entry] a(4006cf) depth: 1
+    `18267435.348912748`  87238: [entry] b(4006e2) depth: 2
+    `18267435.348926465`  87238: [entry] c(4006f5) depth: 3
+    `18267435.348939564`  87238: [entry] getpid(400520) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script (dump.py)
+.footnote[printed using .red[ctx["tid"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    18267435.348824687  `87238`: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  `87238`: [entry] a(4006cf) depth: 1
+    18267435.348912748  `87238`: [entry] b(4006e2) depth: 2
+    18267435.348926465  `87238`: [entry] c(4006f5) depth: 3
+    18267435.348939564  `87238`: [entry] getpid(400520) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script (dump.py)
+.footnote[printed using .red[ctx["name"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    18267435.348824687  87238: [entry] `main`(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] `a`(4006cf) depth: 1
+    18267435.348912748  87238: [entry] `b`(4006e2) depth: 2
+    18267435.348926465  87238: [entry] `c`(4006f5) depth: 3
+    18267435.348939564  87238: [entry] `getpid`(400520) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script (dump.py)
+.footnote[printed using .red[ctx["address"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(`40072a`) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(`4006cf`) depth: 1
+    18267435.348912748  87238: [entry] b(`4006e2`) depth: 2
+    18267435.348926465  87238: [entry] c(`4006f5`) depth: 3
+    18267435.348939564  87238: [entry] getpid(`400520`) depth: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script (dump.py)
+.footnote[printed using .red[ctx["depth"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) `depth`: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(4006cf) `depth`: 1
+    18267435.348912748  87238: [entry] b(4006e2) `depth`: 2
+    18267435.348926465  87238: [entry] c(4006f5) `depth`: 3
+    18267435.348939564  87238: [entry] getpid(400520) `depth`: 4
+```
+---
+class: code-20px
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed using .red[ctx["args"][0]] and .red[ctx["args"][1]]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
@@ -2616,7 +3052,7 @@ class: code-20px
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed by .red[uftrace_exit(ctx)]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
@@ -2633,19 +3069,19 @@ class: code-20px
     18267435.348926465  87238: [entry] c(4006f5) depth: 3
     18267435.348939564  87238: [entry] getpid(400520) depth: 4
     `18267435.348939564  87238: [exit ] getpid(400520) depth: 4`
-      retval  <type 'long'>: 87238
+    `  retval  <type 'long'>: 87238`
     `18267435.348926465  87238: [exit ] c(4006f5) depth: 3`
-      retval  <type 'long'>: 87238
+    `  retval  <type 'long'>: 87238`
     `18267435.348912748  87238: [exit ] b(4006e2) depth: 2`
-      retval  <type 'long'>: 87239
+    `  retval  <type 'long'>: 87239`
     `18267435.348891549  87238: [exit ] a(4006cf) depth: 1`
-      retval  <type 'long'>: 87238
+    `  retval  <type 'long'>: 87238`
     `18267435.348824687  87238: [exit ] main(40072a) depth: 0`
-      retval  <type 'long'>: 0
+    `  retval  <type 'long'>: 0`
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed using .red[ctx["retval"]]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
@@ -2674,7 +3110,7 @@ class: code-20px
 ```
 ---
 class: code-20px
-### A Simple Python Script (dump.py)
+### Arguments Passing in Python Script (dump.py)
 .footnote[printed by .red[uftrace_end()]]
 ```
     $ uftrace record -S scripts/dump.py tests/t-abc
