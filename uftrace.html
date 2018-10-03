@@ -1300,7 +1300,7 @@ class: code-24px
 ### Detect function types using debug info with -a / --auto-args
 .footnote[-a/--auto-args is able to detect .red[enum] and .red[function pointer] types]
 <pre><code>
-    $ uftrace -pg <x-red>-g</x-red> [tests/s-signal.c](https://raw.githubusercontent.com/namhyung/uftrace/master/tests/s-signal.c)
+    $ gcc -pg <x-red>-g</x-red> [tests/s-signal.c](https://raw.githubusercontent.com/namhyung/uftrace/master/tests/s-signal.c)
 </code><pre>
 ```
     $ uftrace `-a` a.out
@@ -1330,7 +1330,7 @@ class: code-26px
 - Print statistics and summary for trace data
 
 ```
-  $ gcc -pg foobar.c
+  $ gcc -pg tests/s-signal.c
 ```
 ---
 class: code-26px
@@ -1338,7 +1338,7 @@ class: code-26px
 - Print statistics and summary for trace data
 
 ```
-  $ gcc -pg foobar.c
+  $ gcc -pg tests/s-signal.c
   $ uftrace record a.out
 ```
 ---
@@ -1347,24 +1347,29 @@ class: code-26px
 - Print statistics and summary for trace data
 
 ```
-  $ gcc -pg foobar.c
-  $ uftrace record a.out
-  $ uftrace report
-```
----
-class: code-26px
-### uftrace report
-- Print statistics and summary for trace data
-
-```
-  $ gcc -pg foobar.c
+  $ gcc -pg tests/s-signal.c
   $ uftrace record a.out
   $ uftrace report
-  Total time  Self time      Calls Function
-  ========== ========== ========== =================
-    0.890 us   0.326 us          1 main
-    0.564 us   0.430 us          1 foo
-    0.134 us   0.134 us          1 bar
+```
+---
+class: code-26px
+### uftrace report
+- Print statistics and summary for trace data
+
+```
+  $ gcc -pg tests/s-signal.c
+  $ uftrace record a.out
+  $ uftrace report
+    Total time   Self time       Calls  Function
+    ==========  ==========  ==========  ====================
+     25.310 us    5.848 us           1  main
+     16.474 us   15.104 us           1  raise
+      3.007 us    3.007 us           1  __monstartup
+      2.247 us    2.247 us           1  signal
+      1.370 us    1.086 us           1  sighandler
+      1.276 us    1.276 us           1  __cxa_atexit
+      0.741 us    0.741 us           2  foo
+      0.284 us    0.284 us           1  bar
 ```
 ---
 class: code-26px
@@ -1373,14 +1378,19 @@ class: code-26px
   - Sort functions by .red[total time] (default)
 
 ```
-  $ gcc -pg foobar.c
+  $ gcc -pg tests/s-signal.c
   $ uftrace record a.out
   $ uftrace report `-s total`
-  `Total time`  Self time      Calls Function
-  ========== ========== ========== =================
-    0.890 us   0.326 us          1 main
-    0.564 us   0.430 us          1 foo
-    0.134 us   0.134 us          1 bar
+    `Total time`   Self time       Calls  Function
+    ==========  ==========  ==========  ====================
+     25.310 us    5.848 us           1  main
+     16.474 us   15.104 us           1  raise
+      3.007 us    3.007 us           1  __monstartup
+      2.247 us    2.247 us           1  signal
+      1.370 us    1.086 us           1  sighandler
+      1.276 us    1.276 us           1  __cxa_atexit
+      0.741 us    0.741 us           2  foo
+      0.284 us    0.284 us           1  bar
 ```
 ---
 class: code-26px
@@ -1389,14 +1399,19 @@ class: code-26px
   - Sort functions by .red[self time]
 
 ```
-  $ gcc -pg foobar.c
+  $ gcc -pg tests/s-signal.c
   $ uftrace record a.out
   $ uftrace report `-s self`
-  Total time  `Self time`      Calls Function
-  ========== ========== ========== =================
-    0.564 us   0.430 us          1 foo
-    0.890 us   0.326 us          1 main
-    0.134 us   0.134 us          1 bar
+    Total time   `Self time`       Calls  Function
+    ==========  ==========  ==========  ====================
+     16.474 us   15.104 us           1  raise
+     25.310 us    5.848 us           1  main
+      3.007 us    3.007 us           1  __monstartup
+      2.247 us    2.247 us           1  signal
+      1.276 us    1.276 us           1  __cxa_atexit
+      1.370 us    1.086 us           1  sighandler
+      0.741 us    0.741 us           2  foo
+      0.284 us    0.284 us           1  bar
 ```
 ---
 class: code-26px
@@ -1405,14 +1420,19 @@ class: code-26px
   - Sort functions by .red[number of calls]
 
 ```
-  $ gcc -pg foobar.c
+  $ gcc -pg tests/s-signal.c
   $ uftrace record a.out
   $ uftrace report `-s call`
-  Total time  Self time      `Calls` Function
-  ========== ========== ========== =================
-    0.890 us   0.326 us          1 main
-    0.564 us   0.430 us          1 foo
-    0.134 us   0.134 us          1 bar
+    Total time   Self time       `Calls`  Function
+    ==========  ==========  ==========  ====================
+      0.741 us    0.741 us           2  foo
+      1.276 us    1.276 us           1  __cxa_atexit
+      3.007 us    3.007 us           1  __monstartup
+      0.284 us    0.284 us           1  bar
+     25.310 us    5.848 us           1  main
+     16.474 us   15.104 us           1  raise
+      1.370 us    1.086 us           1  sighandler
+      2.247 us    2.247 us           1  signal
 ```
 
 ---
