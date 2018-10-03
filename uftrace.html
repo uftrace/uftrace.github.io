@@ -1526,9 +1526,6 @@ template: title-layout
     int main()
     {
         std::shared_ptr<int> sp1(new int);
-        {
-          std::shared_ptr<int> sp2(sp1);
-        }
     }
 ```
 ---
@@ -1540,9 +1537,6 @@ template: title-layout
     int main()
     {
         std::shared_ptr<int> sp1(new int);
-        {
-          std::shared_ptr<int> sp2(sp1);
-        }
     }
 ```
 ```
@@ -1557,9 +1551,6 @@ template: title-layout
     int main()
     {
         std::shared_ptr<int> sp1(new int);
-        {
-          std::shared_ptr<int> sp2(sp1);
-        }
     }
 ```
 ```
@@ -1576,9 +1567,6 @@ template: title-layout
     int main()
     {
         std::shared_ptr<int> sp1(new int);
-        {
-          std::shared_ptr<int> sp2(sp1);
-        }
     }
 ```
 ```
@@ -1586,320 +1574,215 @@ template: title-layout
 
     $ uftrace record a.out
 
-    $ uftrace replay
-```
-
----
-class: code-13px
-.footnote[replay output is too long]
-```
-    $ uftrace replay
-    # DURATION     TID     FUNCTION
-                [  1095] | main() {
-                [  1095] |   std::shared_ptr::shared_ptr() {
-                [  1095] |     std::__shared_ptr::__shared_ptr() {
-                [  1095] |       std::__shared_count::__shared_count() {
-                [  1095] |         std::_Sp_counted_ptr::_Sp_counted_ptr() {
-                [  1095] |           std::_Sp_counted_base::_Sp_counted_base() {
-       0.070 us [  1095] |             std::_Mutex_base::_Mutex_base();
-       0.645 us [  1095] |           } /* std::_Sp_counted_base::_Sp_counted_base */
-       0.780 us [  1095] |         } /* std::_Sp_counted_ptr::_Sp_counted_ptr */
-       0.955 us [  1095] |       } /* std::__shared_count::__shared_count */
-       0.044 us [  1095] |       std::__enable_shared_from_this_helper();
-       1.206 us [  1095] |     } /* std::__shared_ptr::__shared_ptr */
-       1.339 us [  1095] |   } /* std::shared_ptr::shared_ptr */
-                [  1095] |   std::shared_ptr::shared_ptr() {
-                [  1095] |     std::__shared_ptr::__shared_ptr() {
-                [  1095] |       std::__shared_count::__shared_count() {
-                [  1095] |         std::_Sp_counted_base::_M_add_ref_copy() {
-                [  1095] |           __gnu_cxx::__atomic_add_dispatch() {
-       0.047 us [  1095] |             __gthread_active_p();
-       0.042 us [  1095] |             __gnu_cxx::__atomic_add();
-       0.379 us [  1095] |           } /* __gnu_cxx::__atomic_add_dispatch */
-       0.549 us [  1095] |         } /* std::_Sp_counted_base::_M_add_ref_copy */
-       0.647 us [  1095] |       } /* std::__shared_count::__shared_count */
-       0.743 us [  1095] |     } /* std::__shared_ptr::__shared_ptr */
-       0.842 us [  1095] |   } /* std::shared_ptr::shared_ptr */
-                [  1095] |   std::shared_ptr::~shared_ptr() {
-                [  1095] |     std::__shared_ptr::~__shared_ptr() {
-                [  1095] |       std::__shared_count::~__shared_count() {
-                [  1095] |         std::_Sp_counted_base::_M_release() {
-                [  1095] |           __gnu_cxx::__exchange_and_add_dispatch() {
-       0.038 us [  1095] |             __gthread_active_p();
-       0.042 us [  1095] |             __gnu_cxx::__exchange_and_add();
-       0.320 us [  1095] |           } /* __gnu_cxx::__exchange_and_add_dispatch */
-       0.423 us [  1095] |         } /* std::_Sp_counted_base::_M_release */
-       0.522 us [  1095] |       } /* std::__shared_count::~__shared_count */
-       0.616 us [  1095] |     } /* std::__shared_ptr::~__shared_ptr */
-       0.715 us [  1095] |   } /* std::shared_ptr::~shared_ptr */
-                [  1095] |   std::shared_ptr::~shared_ptr() {
-                [  1095] |     std::__shared_ptr::~__shared_ptr() {
-            ...
+    $ uftrace `graph`
 ```
 ---
-class: code-13px
-.footnote[using time filter]
-```
-    $ uftrace replay `-t 400ns`
-    # DURATION     TID     FUNCTION
-                [  1095] | main() {
-                [  1095] |   std::shared_ptr::shared_ptr() {
-                [  1095] |     std::__shared_ptr::__shared_ptr() {
-                [  1095] |       std::__shared_count::__shared_count() {
-                [  1095] |         std::_Sp_counted_ptr::_Sp_counted_ptr() {
-       0.645 us [  1095] |           std::_Sp_counted_base::_Sp_counted_base();
-       0.780 us [  1095] |         } /* std::_Sp_counted_ptr::_Sp_counted_ptr */
-       0.955 us [  1095] |       } /* std::__shared_count::__shared_count */
-       1.206 us [  1095] |     } /* std::__shared_ptr::__shared_ptr */
-       1.339 us [  1095] |   } /* std::shared_ptr::shared_ptr */
-                [  1095] |   std::shared_ptr::shared_ptr() {
-                [  1095] |     std::__shared_ptr::__shared_ptr() {
-                [  1095] |       std::__shared_count::__shared_count() {
-       0.549 us [  1095] |         std::_Sp_counted_base::_M_add_ref_copy();
-       0.647 us [  1095] |       } /* std::__shared_count::__shared_count */
-       0.743 us [  1095] |     } /* std::__shared_ptr::__shared_ptr */
-       0.842 us [  1095] |   } /* std::shared_ptr::shared_ptr */
-                [  1095] |   std::shared_ptr::~shared_ptr() {
-                [  1095] |     std::__shared_ptr::~__shared_ptr() {
-                [  1095] |       std::__shared_count::~__shared_count() {
-       0.423 us [  1095] |         std::_Sp_counted_base::_M_release();
-       0.522 us [  1095] |       } /* std::__shared_count::~__shared_count */
-       0.616 us [  1095] |     } /* std::__shared_ptr::~__shared_ptr */
-       0.715 us [  1095] |   } /* std::shared_ptr::~shared_ptr */
-                [  1095] |   std::shared_ptr::~shared_ptr() {
-                [  1095] |     std::__shared_ptr::~__shared_ptr() {
-                [  1095] |       std::__shared_count::~__shared_count() {
-                [  1095] |         std::_Sp_counted_base::_M_release() {
-                [  1095] |           std::_Sp_counted_ptr::_M_dispose() {
-       1.021 us [  1095] |             operator delete();
-       1.522 us [  1095] |           } /* std::_Sp_counted_ptr::_M_dispose */
-                [  1095] |           std::_Sp_counted_ptr::_M_destroy() {
-       0.494 us [  1095] |             std::_Sp_counted_ptr::~_Sp_counted_ptr();
-       0.597 us [  1095] |           } /* std::_Sp_counted_ptr::_M_destroy */
-       3.037 us [  1095] |         } /* std::_Sp_counted_base::_M_release */
-       3.131 us [  1095] |       } /* std::__shared_count::~__shared_count */
-       3.222 us [  1095] |     } /* std::__shared_ptr::~__shared_ptr */
-       3.315 us [  1095] |   } /* std::shared_ptr::~shared_ptr */
-       7.019 us [  1095] | } /* main */
-```
-
----
-class: code-14px
+class: code-15px
 .footnote[aggregated call graph]
 ```
     $ uftrace `graph`
-    # Function Call Graph for 'a.out' (session: c3d2c13b51a25a6b)
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
     ========== FUNCTION CALL GRAPH ==========
     # TOTAL TIME   FUNCTION
-        7.019 us : (1) a.out
-        7.019 us : (1) main
-        2.181 us :  +-(2) std::shared_ptr::shared_ptr
-        1.949 us :  | (2) std::__shared_ptr::__shared_ptr
-        1.602 us :  |  +-(2) std::__shared_count::__shared_count
-        0.780 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
-        0.645 us :  |  |  | (1) std::_Sp_counted_base::_Sp_counted_base
-        0.070 us :  |  |  | (1) std::_Mutex_base::_Mutex_base
-                 :  |  |  |
-        0.549 us :  |  |  +-(1) std::_Sp_counted_base::_M_add_ref_copy
-        0.379 us :  |  |    (1) __gnu_cxx::__atomic_add_dispatch
-        0.047 us :  |  |     +-(1) __gthread_active_p
-                 :  |  |     |
-        0.042 us :  |  |     +-(1) __gnu_cxx::__atomic_add
-                 :  |  |
-        0.044 us :  |  +-(1) std::__enable_shared_from_this_helper
+       20.914 us : (1) a.out
+       20.914 us : (1) main
+        1.997 us :  +-(1) operator new
                  :  |
-        4.030 us :  +-(2) std::shared_ptr::~shared_ptr
-        3.838 us :    (2) std::__shared_ptr::~__shared_ptr
-        3.653 us :    (2) std::__shared_count::~__shared_count
-        3.460 us :    (2) std::_Sp_counted_base::_M_release
-        0.879 us :     +-(3) __gnu_cxx::__exchange_and_add_dispatch
-        0.116 us :     |  +-(3) __gthread_active_p
+        4.170 us :  +-(1) std::shared_ptr::shared_ptr
+        3.797 us :  | (1) std::__shared_ptr::__shared_ptr
+        2.967 us :  |  +-(1) std::__shared_count::__shared_count
+        0.630 us :  |  |  +-(1) operator new
+                 :  |  |  |
+        1.357 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us :  |  |    (1) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us :  |  |    (1) std::_Mutex_base::_Mutex_base
+                 :  |  |
+        0.153 us :  |  +-(1) std::__enable_shared_from_this_helper
+                 :  |
+       10.027 us :  +-(1) std::shared_ptr::~shared_ptr
+        9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+        9.374 us :    (1) std::__shared_count::~__shared_count
+        9.054 us :    (1) std::_Sp_counted_base::_M_release
+        2.093 us :     +-(2) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us :     |  +-(2) __gthread_active_p
                  :     |  |
-        0.126 us :     |  +-(3) __gnu_cxx::__exchange_and_add
+        0.260 us :     |  +-(2) __gnu_cxx::__exchange_and_add_single
                  :     |
-        1.522 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
-        1.021 us :     | (1) operator delete
+        3.803 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
+        2.890 us :     | (1) operator delete
                  :     |
-        0.597 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
-        0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.217 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.041 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
+        2.083 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
+        1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
                  :        |
-        0.068 us :        +-(1) operator delete
+        0.284 us :        +-(1) operator delete
 ```
 ---
-class: code-14px
-.footnote[.red[number of calls for each graph]]
+class: code-15px
+.footnote[.red[number of calls]]
 ```
     $ uftrace graph
-    # Function Call Graph for 'a.out' (session: c3d2c13b51a25a6b)
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
     ========== FUNCTION CALL GRAPH ==========
     # TOTAL TIME   FUNCTION
-        7.019 us : (`1`) a.out
-        7.019 us : (`1`) main
-        2.181 us :  +-(`2`) std::shared_ptr::shared_ptr
-        1.949 us :  | (`2`) std::__shared_ptr::__shared_ptr
-        1.602 us :  |  +-(`2`) std::__shared_count::__shared_count
-        0.780 us :  |  |  +-(`1`) std::_Sp_counted_ptr::_Sp_counted_ptr
-        0.645 us :  |  |  | (`1`) std::_Sp_counted_base::_Sp_counted_base
-        0.070 us :  |  |  | (`1`) std::_Mutex_base::_Mutex_base
-                 :  |  |  |
-        0.549 us :  |  |  +-(`1`) std::_Sp_counted_base::_M_add_ref_copy
-        0.379 us :  |  |    (`1`) __gnu_cxx::__atomic_add_dispatch
-        0.047 us :  |  |     +-(`1`) __gthread_active_p
-                 :  |  |     |
-        0.042 us :  |  |     +-(`1`) __gnu_cxx::__atomic_add
-                 :  |  |
-        0.044 us :  |  +-(`1`) std::__enable_shared_from_this_helper
+       20.914 us : (`1`) a.out
+       20.914 us : (`1`) main
+        1.997 us :  +-(`1`) operator new
                  :  |
-        4.030 us :  +-(`2`) std::shared_ptr::~shared_ptr
-        3.838 us :    (`2`) std::__shared_ptr::~__shared_ptr
-        3.653 us :    (`2`) std::__shared_count::~__shared_count
-        3.460 us :    (`2`) std::_Sp_counted_base::_M_release
-        0.879 us :     +-(`3`) __gnu_cxx::__exchange_and_add_dispatch
-        0.116 us :     |  +-(`3`) __gthread_active_p
+        4.170 us :  +-(`1`) std::shared_ptr::shared_ptr
+        3.797 us :  | (`1`) std::__shared_ptr::__shared_ptr
+        2.967 us :  |  +-(`1`) std::__shared_count::__shared_count
+        0.630 us :  |  |  +-(`1`) operator new
+                 :  |  |  |
+        1.357 us :  |  |  +-(`1`) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us :  |  |    (`1`) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us :  |  |    (`1`) std::_Mutex_base::_Mutex_base
+                 :  |  |
+        0.153 us :  |  +-(`1`) std::__enable_shared_from_this_helper
+                 :  |
+       10.027 us :  +-(`1`) std::shared_ptr::~shared_ptr
+        9.700 us :    (`1`) std::__shared_ptr::~__shared_ptr
+        9.374 us :    (`1`) std::__shared_count::~__shared_count
+        9.054 us :    (`1`) std::_Sp_counted_base::_M_release
+        2.093 us :     +-(`2`) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us :     |  +-(`2`) __gthread_active_p
                  :     |  |
-        0.126 us :     |  +-(`3`) __gnu_cxx::__exchange_and_add
+        0.260 us :     |  +-(`2`) __gnu_cxx::__exchange_and_add_single
                  :     |
-        1.522 us :     +-(`1`) std::_Sp_counted_ptr::_M_dispose
-        1.021 us :     | (`1`) operator delete
+        3.803 us :     +-(`1`) std::_Sp_counted_ptr::_M_dispose
+        2.890 us :     | (`1`) operator delete
                  :     |
-        0.597 us :     +-(`1`) std::_Sp_counted_ptr::_M_destroy
-        0.494 us :       (`1`) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.217 us :        +-(`1`) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.041 us :        | (`1`) std::_Sp_counted_base::~_Sp_counted_base
+        2.083 us :     +-(`1`) std::_Sp_counted_ptr::_M_destroy
+        1.697 us :       (`1`) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us :        +-(`1`) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us :        | (`1`) std::_Sp_counted_base::~_Sp_counted_base
                  :        |
-        0.068 us :        +-(`1`) operator delete
+        0.284 us :        +-(`1`) operator delete
 ```
 ---
-class: code-14px
+class: code-15px
 .footnote[.red[total time of each call graph]]
 ```
     $ uftrace graph
-    # Function Call Graph for 'a.out' (session: c3d2c13b51a25a6b)
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
     ========== FUNCTION CALL GRAPH ==========
     # `TOTAL TIME`   FUNCTION
-        7.019 us : (1) a.out
-        7.019 us : (1) main
-        `2.181 us` :  +-(2) `std::shared_ptr::shared_ptr`
-        1.949 us :  | (2) std::__shared_ptr::__shared_ptr
-        1.602 us :  |  +-(2) std::__shared_count::__shared_count
-        0.780 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
-        0.645 us :  |  |  | (1) std::_Sp_counted_base::_Sp_counted_base
-        0.070 us :  |  |  | (1) std::_Mutex_base::_Mutex_base
-                 :  |  |  |
-        0.549 us :  |  |  +-(1) std::_Sp_counted_base::_M_add_ref_copy
-        0.379 us :  |  |    (1) __gnu_cxx::__atomic_add_dispatch
-        0.047 us :  |  |     +-(1) __gthread_active_p
-                 :  |  |     |
-        0.042 us :  |  |     +-(1) __gnu_cxx::__atomic_add
-                 :  |  |
-        0.044 us :  |  +-(1) std::__enable_shared_from_this_helper
+       20.914 us : (1) a.out
+       20.914 us : (1) main
+        1.997 us :  +-(1) operator new
                  :  |
-        `4.030 us` :  +-(2) `std::shared_ptr::~shared_ptr`
-        3.838 us :    (2) std::__shared_ptr::~__shared_ptr
-        3.653 us :    (2) std::__shared_count::~__shared_count
-        3.460 us :    (2) std::_Sp_counted_base::_M_release
-        0.879 us :     +-(3) __gnu_cxx::__exchange_and_add_dispatch
-        0.116 us :     |  +-(3) __gthread_active_p
+        `4.170 us` :  +-(1) `std::shared_ptr::shared_ptr`
+        3.797 us :  | (1) std::__shared_ptr::__shared_ptr
+        2.967 us :  |  +-(1) std::__shared_count::__shared_count
+        0.630 us :  |  |  +-(1) operator new
+                 :  |  |  |
+        1.357 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us :  |  |    (1) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us :  |  |    (1) std::_Mutex_base::_Mutex_base
+                 :  |  |
+        0.153 us :  |  +-(1) std::__enable_shared_from_this_helper
+                 :  |
+       `10.027 us` :  +-(1) `std::shared_ptr::~shared_ptr`
+        9.700 us :    (1) std::__shared_ptr::~__shared_ptr
+        9.374 us :    (1) std::__shared_count::~__shared_count
+        9.054 us :    (1) std::_Sp_counted_base::_M_release
+        2.093 us :     +-(2) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us :     |  +-(2) __gthread_active_p
                  :     |  |
-        0.126 us :     |  +-(3) __gnu_cxx::__exchange_and_add
+        0.260 us :     |  +-(2) __gnu_cxx::__exchange_and_add_single
                  :     |
-        1.522 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
-        1.021 us :     | (1) operator delete
+        3.803 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
+        2.890 us :     | (1) operator delete
                  :     |
-        0.597 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
-        0.494 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.217 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.041 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
+        2.083 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
+        1.697 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
                  :        |
-        0.068 us :        +-(1) operator delete
+        0.284 us :        +-(1) operator delete
 ```
 ---
-class: code-14px
+class: code-15px
 ```
     $ uftrace graph `-f +self`
-    # Function Call Graph for 'a.out' (session: c3d2c13b51a25a6b)
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
     ========== FUNCTION CALL GRAPH ==========
     # TOTAL TIME   `SELF TIME`   FUNCTION
-        7.019 us             : (1) a.out
-        7.019 us    0.808 us : (1) main
-        2.181 us    0.232 us :  +-(2) std::shared_ptr::shared_ptr
-        1.949 us    0.303 us :  | (2) std::__shared_ptr::__shared_ptr
-        1.602 us    0.273 us :  |  +-(2) std::__shared_count::__shared_count
-        0.780 us    0.135 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
-        0.645 us    0.575 us :  |  |  | (1) std::_Sp_counted_base::_Sp_counted_base
-        0.070 us    0.070 us :  |  |  | (1) std::_Mutex_base::_Mutex_base
-                             :  |  |  |
-        0.549 us    0.170 us :  |  |  +-(1) std::_Sp_counted_base::_M_add_ref_copy
-        0.379 us    0.290 us :  |  |    (1) __gnu_cxx::__atomic_add_dispatch
-        0.047 us    0.047 us :  |  |     +-(1) __gthread_active_p
-                             :  |  |     |
-        0.042 us    0.042 us :  |  |     +-(1) __gnu_cxx::__atomic_add
-                             :  |  |
-        0.044 us    0.044 us :  |  +-(1) std::__enable_shared_from_this_helper
+       20.914 us             : (1) a.out
+       20.914 us    4.720 us : (1) main
+        1.997 us    1.997 us :  +-(1) operator new
                              :  |
-        4.030 us    0.192 us :  +-(2) std::shared_ptr::~shared_ptr
-        3.838 us    0.185 us :    (2) std::__shared_ptr::~__shared_ptr
-        3.653 us    0.193 us :    (2) std::__shared_count::~__shared_count
-        3.460 us    0.462 us :    (2) std::_Sp_counted_base::_M_release
-        0.879 us    0.637 us :     +-(3) __gnu_cxx::__exchange_and_add_dispatch
-        0.116 us    0.116 us :     |  +-(3) __gthread_active_p
+        4.170 us    0.373 us :  +-(1) std::shared_ptr::shared_ptr
+        3.797 us    0.677 us :  | (1) std::__shared_ptr::__shared_ptr
+        2.967 us    0.980 us :  |  +-(1) std::__shared_count::__shared_count
+        0.630 us    0.630 us :  |  |  +-(1) operator new
+                             :  |  |  |
+        1.357 us    0.497 us :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us    0.630 us :  |  |    (1) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us    0.230 us :  |  |    (1) std::_Mutex_base::_Mutex_base
+                             :  |  |
+        0.153 us    0.153 us :  |  +-(1) std::__enable_shared_from_this_helper
+                             :  |
+       10.027 us    0.327 us :  +-(1) std::shared_ptr::~shared_ptr
+        9.700 us    0.326 us :    (1) std::__shared_ptr::~__shared_ptr
+        9.374 us    0.320 us :    (1) std::__shared_count::~__shared_count
+        9.054 us    1.075 us :    (1) std::_Sp_counted_base::_M_release
+        2.093 us    1.546 us :     +-(2) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us    0.287 us :     |  +-(2) __gthread_active_p
                              :     |  |
-        0.126 us    0.126 us :     |  +-(3) __gnu_cxx::__exchange_and_add
+        0.260 us    0.260 us :     |  +-(2) __gnu_cxx::__exchange_and_add_single
                              :     |
-        1.522 us    0.501 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
-        1.021 us    1.021 us :     | (1) operator delete
+        3.803 us    0.913 us :     +-(1) std::_Sp_counted_ptr::_M_dispose
+        2.890 us    2.890 us :     | (1) operator delete
                              :     |
-        0.597 us    0.103 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
-        0.494 us    0.209 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.217 us    0.176 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.041 us    0.041 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
+        2.083 us    0.386 us :     +-(1) std::_Sp_counted_ptr::_M_destroy
+        1.697 us    0.727 us :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us    0.543 us :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us    0.143 us :        | (1) std::_Sp_counted_base::~_Sp_counted_base
                              :        |
-        0.068 us    0.068 us :        +-(1) operator delete
+        0.284 us    0.284 us :        +-(1) operator delete
 ```
 ---
-class: code-14px
+class: code-15px
 ```
     $ uftrace graph `-f +self,addr`
-    # Function Call Graph for 'a.out' (session: c3d2c13b51a25a6b)
+    # Function Call Graph for 'a.out' (session: c6e074b930018807)
     ========== FUNCTION CALL GRAPH ==========
     # TOTAL TIME   `SELF TIME`     `ADDRESS`     FUNCTION
-        7.019 us              562731a8bee9 : (1) a.out
-        7.019 us    0.808 us  562731a8bee9 : (1) main
-        2.181 us    0.232 us  562731a8c01e :  +-(2) std::shared_ptr::shared_ptr
-        1.949 us    0.303 us  562731a8c0bc :  | (2) std::__shared_ptr::__shared_ptr
-        1.602 us    0.273 us  562731a8c1c5 :  |  +-(2) std::__shared_count::__shared_count
-        0.780 us    0.135 us  562731a8c2d4 :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
-        0.645 us    0.575 us  562731a8c37a :  |  |  | (1) std::_Sp_counted_base::_Sp_counted_base
-        0.070 us    0.070 us  562731a8c364 :  |  |  | (1) std::_Mutex_base::_Mutex_base
-                                           :  |  |  |
-        0.549 us    0.170 us  562731a8c19a :  |  |  +-(1) std::_Sp_counted_base::_M_add_ref_copy
-        0.379 us    0.290 us  562731a8be9f :  |  |    (1) __gnu_cxx::__atomic_add_dispatch
-        0.047 us    0.047 us  562731a8bd8a :  |  |     +-(1) __gthread_active_p
-                                           :  |  |     |
-        0.042 us    0.042 us  562731a8bdd7 :  |  |     +-(1) __gnu_cxx::__atomic_add
-                                           :  |  |
-        0.044 us    0.044 us  562731a8c241 :  |  +-(1) std::__enable_shared_from_this_helper
+       20.914 us                    400c3c : (1) a.out
+       20.914 us    4.720 us        400c3c : (1) main
+        1.997 us    1.997 us        400a10 :  +-(1) operator new
                                            :  |
-        4.030 us    0.192 us  562731a8bf8e :  +-(2) std::shared_ptr::~shared_ptr
-        3.838 us    0.185 us  562731a8bf68 :    (2) std::__shared_ptr::~__shared_ptr
-        3.653 us    0.193 us  562731a8c04a :    (2) std::__shared_count::~__shared_count
-        3.460 us    0.462 us  562731a8c118 :    (2) std::_Sp_counted_base::_M_release
-        0.879 us    0.637 us  562731a8be56 :     +-(3) __gnu_cxx::__exchange_and_add_dispatch
-        0.116 us    0.116 us  562731a8bd8a :     |  +-(3) __gthread_active_p
+        4.170 us    0.373 us        400cdf :  +-(1) std::shared_ptr::shared_ptr
+        3.797 us    0.677 us        400d3b :  | (1) std::__shared_ptr::__shared_ptr
+        2.967 us    0.980 us        400e16 :  |  +-(1) std::__shared_count::__shared_count
+        0.630 us    0.630 us        400a10 :  |  |  +-(1) operator new
+                                           :  |  |  |
+        1.357 us    0.497 us        400f21 :  |  |  +-(1) std::_Sp_counted_ptr::_Sp_counted_ptr
+        0.860 us    0.630 us        400fd1 :  |  |    (1) std::_Sp_counted_base::_Sp_counted_base
+        0.230 us    0.230 us        400fbd :  |  |    (1) std::_Mutex_base::_Mutex_base
+                                           :  |  |
+        0.153 us    0.153 us        400e91 :  |  +-(1) std::__enable_shared_from_this_helper
+                                           :  |
+       10.027 us    0.327 us        400cbf :  +-(1) std::shared_ptr::~shared_ptr
+        9.700 us    0.326 us        400c9b :    (1) std::__shared_ptr::~__shared_ptr
+        9.374 us    0.320 us        400d0b :    (1) std::__shared_count::~__shared_count
+        9.054 us    1.075 us        400d95 :    (1) std::_Sp_counted_base::_M_release
+        2.093 us    1.546 us        400bf4 :     +-(2) __gnu_cxx::__exchange_and_add_dispatch
+        0.287 us    0.287 us        400b7f :     |  +-(2) __gthread_active_p
                                            :     |  |
-        0.126 us    0.126 us  562731a8bdb3 :     |  +-(3) __gnu_cxx::__exchange_and_add
+        0.260 us    0.260 us        400bc1 :     |  +-(2) __gnu_cxx::__exchange_and_add_single
                                            :     |
-        1.522 us    0.501 us  562731a8c41c :     +-(1) std::_Sp_counted_ptr::_M_dispose
-        1.021 us    1.021 us  562731a8bbb0 :     | (1) operator delete
+        3.803 us    0.913 us        40107f :     +-(1) std::_Sp_counted_ptr::_M_dispose
+        2.890 us    2.890 us        400960 :     | (1) operator delete
                                            :     |
-        0.597 us    0.103 us  562731a8c442 :     +-(1) std::_Sp_counted_ptr::_M_destroy
-        0.494 us    0.209 us  562731a8c3f0 :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.217 us    0.176 us  562731a8c3c0 :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
-        0.041 us    0.041 us  562731a8c314 :        | (1) std::_Sp_counted_base::~_Sp_counted_base
+        2.083 us    0.386 us        4010a3 :     +-(1) std::_Sp_counted_ptr::_M_destroy
+        1.697 us    0.727 us        401053 :       (1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.686 us    0.543 us        401013 :        +-(1) std::_Sp_counted_ptr::~_Sp_counted_ptr
+        0.143 us    0.143 us        400f5d :        | (1) std::_Sp_counted_base::~_Sp_counted_base
                                            :        |
-        0.068 us    0.068 us  562731a8bbb0 :        +-(1) operator delete
+        0.284 us    0.284 us        400960 :        +-(1) operator delete
 ```
 
 ---
