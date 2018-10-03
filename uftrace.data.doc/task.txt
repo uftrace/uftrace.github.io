@@ -1,0 +1,2 @@
+SESS timestamp=18225578.728854789 pid=65398 sid=c6e074b930018807 exename="/home/honggyu/src/toolchain/my-git/gcc/build.pg/bin/uftrace.github.io/a.out"
+TASK timestamp=18225578.728951240 tid=65398 pid=65398
