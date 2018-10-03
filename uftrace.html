@@ -120,6 +120,8 @@
       .code-24px .remark-code-line { font-size: 24px; min-height: 26px; }
       .code-25px .remark-code-line { font-size: 25px; min-height: 27px; }
       .code-26px .remark-code-line { font-size: 26px; min-height: 28px; }
+      .code-27px .remark-code-line { font-size: 27px; min-height: 29px; }
+      .code-28px .remark-code-line { font-size: 28px; min-height: 30px; }
 
       /* Colors */
       .red      { color: red;     }
@@ -184,18 +186,18 @@ name: toc
   - [Library Function Tracing](#lib-tracing)
   - [Linux Kernel Function Tracing](#kernel-tracing)
   - [Event Tracing](#event-tracing)
-- [Filters](#filters)
-- [Display Function Arguments](#args)
-- [Arguments Detection with Debug Info](#autoargs)
+- Filters and Arguments
+  - [Filters](#filters)
+  - [Display Function Arguments](#args)
+  - [Arguments Detection with Debug Info](#autoargs)
 - Recorded Data Analysis
   - [report command](#report)
   - [dump command](#dump)
   - [graph command](#graph)
   - [tui command](#tui)
 - Advanced Topics
+  - [(Python) Scripting](#python)
   - [Dynamic Tracing](#dynamic-tracing)
-  - [(Python) Scripting](#python) (TBD)
-  - [Triggers](#triggers) (TBD)
 
 ---
 ### uftrace
@@ -622,7 +624,7 @@ class: code-26px
 
 ```
     $ gcc -pg foobar.c
-  
+
     $ uftrace `--no-libcall` a.out
     # DURATION    TID     FUNCTION
                 [11558] | main() {
@@ -1859,7 +1861,7 @@ class: tui
       0.143 us :        │ (1) std::_Sp_counted_base::~_Sp_counted_base
                :        │
       0.284 us :        └─(1) operator delete
-  
+
   <x-tui-blue-line>uftrace graph: session c6e074b930018807 (/home/honggyu/uftrace/a.out)</x-tui-blue-line>
 </code>
 </pre>
@@ -2455,6 +2457,740 @@ template: title-layout
 .footnote[[doc/uftrace-script.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-script.md)]
 <pre><code class="bash">$ ./configure        
 libpython2.7: [ .green[on]  ]</code></pre>
+
+---
+### uftrace script
+- uftrace is able to run (python) script
+  - at the entry and exit for each user and library function
+  - <x-red>UFTRACE_FUNCS</x-red> = ["foo", "bar", ...]
+      - script is called only for the specified functions.
+      - to reduce overhead of script invocation.
+---
+### uftrace script
+- uftrace is able to run (python) script
+  - at the entry and exit for each user and library function
+  - <x-red>UFTRACE_FUNCS</x-red> = ["foo", "bar", ...]
+      - script is called only for the specified functions.
+      - to reduce overhead of script invocation.
+
+
+- Script can be executed
+  - at runtime (record time)
+      - execute a given script at record time.
+      - able to perform additional actions, but slow
+  - at analysis time (post processing)
+      - run a given script for a recorded data (uftrace.data)
+      - using "uftrace <x-red>script</x-red>" command
+      - fast and reliable
+
+---
+### uftrace script
+- uftrace script (python) APIs
+  - uftrace_entry(ctx)
+  - uftrace_exit(ctx)
+  - uftrace_begin(ctx)
+  - uftrace_end()
+---
+class: code-20px
+### uftrace script
+- uftrace script (python) APIs
+  - uftrace_entry(.red[ctx])
+  - uftrace_exit(.red[ctx])
+  - uftrace_begin(.red[ctx])
+  - uftrace_end()
+
+```sh
+    /* context info passed to uftrace_entry(`ctx`) and uftrace_exit(`ctx`) */
+    script_context = {
+        int       tid;
+        int       depth;
+        long      timestamp;
+        long      duration;    # exit only
+        long      address;
+        string    name;
+        list      args;        # entry only (if available)
+        value     retval;      # exit  only (if available)
+    };
+
+    /* context info passed to uftrace_begin(`ctx`) */
+    script_context = {
+        bool      recording;   # True if it runs at record time, otherwise False
+        string    version;     # uftrace version info
+        string    args;        # excution arguments info
+    };
+```
+
+---
+class: code-17px
+### A Simple Python Script (dump.py)
+```
+    $ uftrace record `-S scripts/dump.py` tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    18267435.348721989  87238: [entry] __monstartup(400540) depth: 0
+    18267435.348721989  87238: [exit ] __monstartup(400540) depth: 0
+    18267435.348787517  87238: [entry] __cxa_atexit(400560) depth: 0
+    18267435.348787517  87238: [exit ] __cxa_atexit(400560) depth: 0
+    18267435.348824687  87238: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(4006cf) depth: 1
+    18267435.348912748  87238: [entry] b(4006e2) depth: 2
+    18267435.348926465  87238: [entry] c(4006f5) depth: 3
+    18267435.348939564  87238: [entry] getpid(400520) depth: 4
+    18267435.348939564  87238: [exit ] getpid(400520) depth: 4
+      retval  <type 'long'>: 87238
+    18267435.348926465  87238: [exit ] c(4006f5) depth: 3
+      retval  <type 'long'>: 87238
+    18267435.348912748  87238: [exit ] b(4006e2) depth: 2
+      retval  <type 'long'>: 87239
+    18267435.348891549  87238: [exit ] a(4006cf) depth: 1
+      retval  <type 'long'>: 87238
+    18267435.348824687  87238: [exit ] main(40072a) depth: 0
+      retval  <type 'long'>: 0
+
+    uftrace_end()
+```
+
+---
+class: code-26px
+### A Simple Python Script (count.py)
+- Count the number of function entries.
+```py
+    $ cat scripts/count.py
+    count = 0
+
+    def uftrace_begin(ctx):
+        pass
+
+    def uftrace_entry(ctx):
+        global count
+        count += 1
+
+    def uftrace_exit(ctx):
+        pass
+
+    def uftrace_end():
+        print(count)
+```
+
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      &nbsp;
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    void bar() {
+    }
+
+    void foo() {
+      bar();
+    }
+
+    int main() {
+      foo();
+    }
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      &nbsp;
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+---
+class: code-26px
+.footnote[.red[-S SCRIPT_PATH] - Add a script to do additional work]
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace <x-red>-S count.py</x-red> a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def `uftrace_begin`(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    `main`() `{`
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def `uftrace_entry`(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      `foo`() `{`
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def `uftrace_entry`(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        `bar`() `{`
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def `uftrace_entry`(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def `uftrace_exit`(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        `}` /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def `uftrace_exit`(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      `}` /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def `uftrace_exit`(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    `}` /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      &nbsp;
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def `uftrace_end`():
+      print(count)
+```
+]
+---
+class: code-26px
+<pre><code class="plain">      $ gcc -pg foobar.c
+      $ uftrace -S count.py a.out
+      <x-red>3</x-red>
+</code></pre>
+.left-column[
+```
+    # FUNCTION
+    main() {
+      foo() {
+        bar() {
+        } /* bar */
+      } /* foo */
+    } /* main */
+```
+]
+.right-column[
+```
+  $ cat count.py
+  count = 0
+
+  def uftrace_begin(ctx):
+      pass
+
+  def uftrace_entry(ctx):
+      global count
+      count += 1
+
+  def uftrace_exit(ctx):
+      pass
+
+  def uftrace_end():
+      `print(count)`
+```
+]
 
 ---
 name: dynamic-tracing
