@@ -806,8 +806,8 @@ class: code-18px
   - Set kernel max function depth separately.
 
 ```
-  $ sudo uftrace `-K 2` a.out
-  Hello World!
+      $ sudo uftrace `-K 2` a.out
+      Hello World!
 ```
 ---
 class: code-18px
@@ -816,30 +816,30 @@ class: code-18px
   - Set kernel max function depth separately.
 
 ```
-  $ sudo uftrace `-K 2` a.out
-  Hello World!
-  # DURATION     TID     FUNCTION
-              [162954] | main() {
-              [162954] |   printf() {
-              [162954] |     `sys_newfstat`() {
-     3.074 us [162954] |       `vfs_fstat`();
-     1.200 us [162954] |       `cp_new_stat`();
-     6.914 us [162954] |     } /* sys_newfstat */
-              [162954] |     `__do_page_fault`() {
-     0.643 us [162954] |       `down_read_trylock`();
-     0.630 us [162954] |       `_cond_resched`();
-     2.440 us [162954] |       `find_vma`();
-     9.697 us [162954] |       `handle_mm_fault`();
-     0.690 us [162954] |       `up_read`();
-    21.813 us [162954] |     } /* __do_page_fault */
-    42.064 us [162954] |   } /* printf */
-              [162954] |   fflush() {
-              [162954] |     `sys_write`() {
-     0.933 us [162954] |       `__fdget_pos`();
-    18.310 us [162954] |       `vfs_write`();
-    27.117 us [162954] |     } /* sys_write */
-    30.673 us [162954] |   } /* fflush */
-    74.223 us [162954] | } /* main */
+      $ sudo uftrace `-K 2` a.out
+      Hello World!
+      # DURATION     TID     FUNCTION
+                  [162954] | main() {
+                  [162954] |   printf() {
+                  [162954] |     `sys_newfstat`() {
+         3.074 us [162954] |       `vfs_fstat`();
+         1.200 us [162954] |       `cp_new_stat`();
+         6.914 us [162954] |     } /* sys_newfstat */
+                  [162954] |     `__do_page_fault`() {
+         0.643 us [162954] |       `down_read_trylock`();
+         0.630 us [162954] |       `_cond_resched`();
+         2.440 us [162954] |       `find_vma`();
+         9.697 us [162954] |       `handle_mm_fault`();
+         0.690 us [162954] |       `up_read`();
+        21.813 us [162954] |     } /* __do_page_fault */
+        42.064 us [162954] |   } /* printf */
+                  [162954] |   fflush() {
+                  [162954] |     `sys_write`() {
+         0.933 us [162954] |       `__fdget_pos`();
+        18.310 us [162954] |       `vfs_write`();
+        27.117 us [162954] |     } /* sys_write */
+        30.673 us [162954] |   } /* fflush */
+        74.223 us [162954] | } /* main */
 ```
 
 ---
@@ -1324,6 +1324,7 @@ template: title-layout
 .footnote[[doc/uftrace-report.md](https://github.com/namhyung/uftrace/blob/master/doc/uftrace-report.md)]
 
 ---
+class: code-26px
 ### uftrace report
 - Print statistics and summary for trace data
 
@@ -1331,6 +1332,7 @@ template: title-layout
   $ gcc -pg foobar.c
 ```
 ---
+class: code-26px
 ### uftrace report
 - Print statistics and summary for trace data
 
@@ -1339,6 +1341,7 @@ template: title-layout
   $ uftrace record a.out
 ```
 ---
+class: code-26px
 ### uftrace report
 - Print statistics and summary for trace data
 
@@ -1348,6 +1351,7 @@ template: title-layout
   $ uftrace report
 ```
 ---
+class: code-26px
 ### uftrace report
 - Print statistics and summary for trace data
 
@@ -1362,6 +1366,7 @@ template: title-layout
     0.134 us   0.134 us          1 bar
 ```
 ---
+class: code-26px
 ### uftrace report
 - Print statistics and summary for trace data
   - Sort functions by .red[total time] (default)
@@ -1377,6 +1382,7 @@ template: title-layout
     0.134 us   0.134 us          1 bar
 ```
 ---
+class: code-26px
 ### uftrace report
 - Print statistics and summary for trace data
   - Sort functions by .red[self time]
@@ -1392,6 +1398,7 @@ template: title-layout
     0.134 us   0.134 us          1 bar
 ```
 ---
+class: code-26px
 ### uftrace report
 - Print statistics and summary for trace data
   - Sort functions by .red[number of calls]
