@@ -2521,19 +2521,168 @@ class: code-20px
 ```
 
 ---
-class: code-17px
+class: code-20px
+### A Simple Python Script (dump.py)
+```
+    $ uftrace record tests/t-abc
+```
+---
+class: code-20px
 ### A Simple Python Script (dump.py)
 ```
     $ uftrace record `-S scripts/dump.py` tests/t-abc
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed by .red[uftrace_begin(ctx)]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    `uftrace_begin(ctx)`
+    `  recoding: True`
+    `  version : v0.9-57-gf112 ( dwarf python tui perf sched )`
+    `  args    : tests/t-abc`
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed using .red[ctx["recording"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+    `  recoding: True`
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed using .red[ctx["version"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+    `  version : v0.9-57-gf112 ( dwarf python tui perf sched )`
+      args    : tests/t-abc
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed using .red[ctx["args"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+    `  args    : tests/t-abc`
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed by .red[uftrace_entry(ctx)]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
     uftrace_begin(ctx)
       recoding: True
       version : v0.9-57-gf112 ( dwarf python tui perf sched )
       args    : tests/t-abc
 
-    18267435.348721989  87238: [entry] __monstartup(400540) depth: 0
-    18267435.348721989  87238: [exit ] __monstartup(400540) depth: 0
-    18267435.348787517  87238: [entry] __cxa_atexit(400560) depth: 0
-    18267435.348787517  87238: [exit ] __cxa_atexit(400560) depth: 0
+    `18267435.348824687  87238: [entry] main(40072a) depth: 0`
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    `18267435.348891549  87238: [entry] a(4006cf) depth: 1`
+    `18267435.348912748  87238: [entry] b(4006e2) depth: 2`
+    `18267435.348926465  87238: [entry] c(4006f5) depth: 3`
+    `18267435.348939564  87238: [entry] getpid(400520) depth: 4`
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed using .red[ctx["args"][0]] and .red[ctx["args"][1]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) depth: 0
+    `  args[0] <type 'long'>: 1`
+    `  args[1] <type 'long'>: 140731679137864`
+    18267435.348891549  87238: [entry] a(4006cf) depth: 1
+    18267435.348912748  87238: [entry] b(4006e2) depth: 2
+    18267435.348926465  87238: [entry] c(4006f5) depth: 3
+    18267435.348939564  87238: [entry] getpid(400520) depth: 4
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed by .red[uftrace_exit(ctx)]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(4006cf) depth: 1
+    18267435.348912748  87238: [entry] b(4006e2) depth: 2
+    18267435.348926465  87238: [entry] c(4006f5) depth: 3
+    18267435.348939564  87238: [entry] getpid(400520) depth: 4
+    `18267435.348939564  87238: [exit ] getpid(400520) depth: 4`
+      retval  <type 'long'>: 87238
+    `18267435.348926465  87238: [exit ] c(4006f5) depth: 3`
+      retval  <type 'long'>: 87238
+    `18267435.348912748  87238: [exit ] b(4006e2) depth: 2`
+      retval  <type 'long'>: 87239
+    `18267435.348891549  87238: [exit ] a(4006cf) depth: 1`
+      retval  <type 'long'>: 87238
+    `18267435.348824687  87238: [exit ] main(40072a) depth: 0`
+      retval  <type 'long'>: 0
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed using .red[ctx["retval"]]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
+    18267435.348824687  87238: [entry] main(40072a) depth: 0
+      args[0] <type 'long'>: 1
+      args[1] <type 'long'>: 140731679137864
+    18267435.348891549  87238: [entry] a(4006cf) depth: 1
+    18267435.348912748  87238: [entry] b(4006e2) depth: 2
+    18267435.348926465  87238: [entry] c(4006f5) depth: 3
+    18267435.348939564  87238: [entry] getpid(400520) depth: 4
+    18267435.348939564  87238: [exit ] getpid(400520) depth: 4
+    `  retval  <type 'long'>: 87238`
+    18267435.348926465  87238: [exit ] c(4006f5) depth: 3
+    `  retval  <type 'long'>: 87238`
+    18267435.348912748  87238: [exit ] b(4006e2) depth: 2
+    `  retval  <type 'long'>: 87239`
+    18267435.348891549  87238: [exit ] a(4006cf) depth: 1
+    `  retval  <type 'long'>: 87238`
+    18267435.348824687  87238: [exit ] main(40072a) depth: 0
+    `  retval  <type 'long'>: 0`
+```
+---
+class: code-20px
+### A Simple Python Script (dump.py)
+.footnote[printed by .red[uftrace_end()]]
+```
+    $ uftrace record -S scripts/dump.py tests/t-abc
+    uftrace_begin(ctx)
+      recoding: True
+      version : v0.9-57-gf112 ( dwarf python tui perf sched )
+      args    : tests/t-abc
+
     18267435.348824687  87238: [entry] main(40072a) depth: 0
       args[0] <type 'long'>: 1
       args[1] <type 'long'>: 140731679137864
@@ -2552,645 +2701,8 @@ class: code-17px
     18267435.348824687  87238: [exit ] main(40072a) depth: 0
       retval  <type 'long'>: 0
 
-    uftrace_end()
+    `uftrace_end()`
 ```
-
----
-class: code-26px
-### A Simple Python Script (count.py)
-- Count the number of function entries.
-```py
-    $ cat scripts/count.py
-    count = 0
-
-    def uftrace_begin(ctx):
-        pass
-
-    def uftrace_entry(ctx):
-        global count
-        count += 1
-
-    def uftrace_exit(ctx):
-        pass
-
-    def uftrace_end():
-        print(count)
-```
-
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      &nbsp;
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    void bar() {
-    }
-
-    void foo() {
-      bar();
-    }
-
-    int main() {
-      foo();
-    }
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      &nbsp;
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
----
-class: code-26px
-.footnote[.red[-S SCRIPT_PATH] - Add a script to do additional work]
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace <x-red>-S count.py</x-red> a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def `uftrace_begin`(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    `main`() `{`
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def `uftrace_entry`(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      `foo`() `{`
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def `uftrace_entry`(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        `bar`() `{`
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def `uftrace_entry`(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def `uftrace_exit`(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        `}` /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def `uftrace_exit`(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      `}` /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def `uftrace_exit`(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    `}` /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      &nbsp;
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def `uftrace_end`():
-      print(count)
-```
-]
----
-class: code-26px
-<pre><code class="plain">      $ gcc -pg foobar.c
-      $ uftrace -S count.py a.out
-      <x-red>3</x-red>
-</code></pre>
-.left-column[
-```
-    # FUNCTION
-    main() {
-      foo() {
-        bar() {
-        } /* bar */
-      } /* foo */
-    } /* main */
-```
-]
-.right-column[
-```
-  $ cat count.py
-  count = 0
-
-  def uftrace_begin(ctx):
-      pass
-
-  def uftrace_entry(ctx):
-      global count
-      count += 1
-
-  def uftrace_exit(ctx):
-      pass
-
-  def uftrace_end():
-      `print(count)`
-```
-]
 
 ---
 name: dynamic-tracing
