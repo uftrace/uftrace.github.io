@@ -1,0 +1,2034 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="1654" onload="init(evt)" viewBox="0 0 1200 1654" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, searchbtn, matchedtxt, svg;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	// mouse-over for info
+	function s(node) {		// show
+		info = g_to_text(node);
+		details.nodeValue = "Function: " + info;
+	}
+	function c() {			// clear
+		details.nodeValue = ' ';
+	}
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	})
+
+	// functions
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) {
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (0 == 0) {
+				var upstack = parseFloat(a["y"].value) > ymin;
+			} else {
+				var upstack = parseFloat(a["y"].value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.getElementsByTagName("rect");
+		for (var i=0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.style["opacity"] = "0.1";
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.style["opacity"] = "0.0";
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementsByTagName("g");
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			if (e.attributes["class"].value != "func_g")
+				continue;
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (rect == null) {
+				// the rect might be wrapped in an anchor
+				// if nameattr href is being used
+				if (rect = find_child(e, "a")) {
+				    rect = find_child(r, "rect");
+				}
+			}
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes["width"].value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes["x"].value);
+				orig_save(rect, "fill");
+				rect.attributes["fill"].value =
+				    "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.style["opacity"] = "1.0";
+		searchbtn.firstChild.nodeValue = "Reset Search"
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.style["opacity"] = "1.0";
+		pct = 100 * count / maxwidth;
+		if (pct == 100)
+			pct = "100"
+		else
+			pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+	function searchover(e) {
+		searchbtn.style["opacity"] = "1.0";
+	}
+	function searchout(e) {
+		if (searching) {
+			searchbtn.style["opacity"] = "1.0";
+		} else {
+			searchbtn.style["opacity"] = "0.1";
+		}
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="1654.0" fill="url(#background)"  />
+<text text-anchor="middle" x="600.00" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Flame Graph</text>
+<text text-anchor="" x="10.00" y="1637" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0;cursor:pointer" >Reset Zoom</text>
+<text text-anchor="" x="1090.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="search" onmouseover="searchover()" onmouseout="searchout()" onclick="search_prompt()" style="opacity:0.1;cursor:pointer" >Search</text>
+<text text-anchor="" x="1090.00" y="1637" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="matched" > </text>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (70 samples, 14.11%)</title><rect x="395.4" y="1125" width="166.5" height="15.0" fill="rgb(213,196,50)" rx="2" ry="2" />
+<text text-anchor="" x="398.40" y="1135.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (13 samples, 2.62%)</title><rect x="271.7" y="1157" width="30.9" height="15.0" fill="rgb(247,201,31)" rx="2" ry="2" />
+<text text-anchor="" x="274.69" y="1167.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (140 samples, 28.23%)</title><rect x="633.3" y="1349" width="333.1" height="15.0" fill="rgb(246,134,53)" rx="2" ry="2" />
+<text text-anchor="" x="636.31" y="1359.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >object_vacall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (29 samples, 5.85%)</title><rect x="880.7" y="213" width="69.0" height="15.0" fill="rgb(248,205,49)" rx="2" ry="2" />
+<text text-anchor="" x="883.73" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (60 samples, 12.10%)</title><rect x="1011.6" y="1365" width="142.7" height="15.0" fill="rgb(216,101,29)" rx="2" ry="2" />
+<text text-anchor="" x="1014.57" y="1375.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallMeth..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (54 samples, 10.89%)</title><rect x="1025.8" y="1317" width="128.5" height="15.0" fill="rgb(245,196,3)" rx="2" ry="2" />
+<text text-anchor="" x="1028.85" y="1327.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fa..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (14 samples, 2.82%)</title><rect x="269.3" y="1173" width="33.3" height="15.0" fill="rgb(250,167,6)" rx="2" ry="2" />
+<text text-anchor="" x="272.31" y="1183.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (3 samples, 0.60%)</title><rect x="385.9" y="981" width="7.1" height="15.0" fill="rgb(239,0,37)" rx="2" ry="2" />
+<text text-anchor="" x="388.89" y="991.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_Import (149 samples, 30.04%)</title><rect x="611.9" y="1493" width="354.5" height="15.0" fill="rgb(228,64,7)" rx="2" ry="2" />
+<text text-anchor="" x="614.90" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_Import</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_FASTCALL (5 samples, 1.01%)</title><rect x="904.5" y="117" width="11.9" height="15.0" fill="rgb(254,88,9)" rx="2" ry="2" />
+<text text-anchor="" x="907.52" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (142 samples, 28.63%)</title><rect x="628.5" y="1381" width="337.9" height="15.0" fill="rgb(240,187,10)" rx="2" ry="2" />
+<text text-anchor="" x="631.55" y="1391.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportModuleLevelObject</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (72 samples, 14.52%)</title><rect x="778.4" y="453" width="171.3" height="15.0" fill="rgb(245,51,5)" rx="2" ry="2" />
+<text text-anchor="" x="781.43" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >object_vacall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (2 samples, 0.40%)</title><rect x="1185.2" y="1365" width="4.8" height="15.0" fill="rgb(250,170,41)" rx="2" ry="2" />
+<text text-anchor="" x="1188.24" y="1375.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (6 samples, 1.21%)</title><rect x="114.7" y="1093" width="14.3" height="15.0" fill="rgb(209,194,32)" rx="2" ry="2" />
+<text text-anchor="" x="117.68" y="1103.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (27 samples, 5.44%)</title><rect x="76.6" y="1349" width="64.2" height="15.0" fill="rgb(213,46,45)" rx="2" ry="2" />
+<text text-anchor="" x="79.61" y="1359.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>r_object (1 samples, 0.20%)</title><rect x="300.2" y="965" width="2.4" height="15.0" fill="rgb(222,165,33)" rx="2" ry="2" />
+<text text-anchor="" x="303.24" y="975.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (104 samples, 20.97%)</title><rect x="709.4" y="837" width="247.5" height="15.0" fill="rgb(218,163,19)" rx="2" ry="2" />
+<text text-anchor="" x="712.44" y="847.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin_exec (4 samples, 0.81%)</title><rect x="906.9" y="101" width="9.5" height="15.0" fill="rgb(241,59,52)" rx="2" ry="2" />
+<text text-anchor="" x="909.90" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_O (5 samples, 1.01%)</title><rect x="290.7" y="1029" width="11.9" height="15.0" fill="rgb(219,196,35)" rx="2" ry="2" />
+<text text-anchor="" x="293.73" y="1039.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (90 samples, 18.15%)</title><rect x="347.8" y="1221" width="214.1" height="15.0" fill="rgb(232,76,23)" rx="2" ry="2" />
+<text text-anchor="" x="350.82" y="1231.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (103 samples, 20.77%)</title><rect x="711.8" y="821" width="245.1" height="15.0" fill="rgb(230,162,0)" rx="2" ry="2" />
+<text text-anchor="" x="714.81" y="831.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>pyinit_config.constprop.16 (15 samples, 3.02%)</title><rect x="1154.3" y="1525" width="35.7" height="15.0" fill="rgb(242,217,54)" rx="2" ry="2" />
+<text text-anchor="" x="1157.31" y="1535.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >pyi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (66 samples, 13.31%)</title><rect x="792.7" y="421" width="157.0" height="15.0" fill="rgb(214,17,41)" rx="2" ry="2" />
+<text text-anchor="" x="795.70" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Py_FinalizeEx.part.11 (8 samples, 1.61%)</title><rect x="19.5" y="1525" width="19.0" height="15.0" fill="rgb(213,113,41)" rx="2" ry="2" />
+<text text-anchor="" x="22.52" y="1535.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (14 samples, 2.82%)</title><rect x="183.7" y="1157" width="33.3" height="15.0" fill="rgb(216,201,5)" rx="2" ry="2" />
+<text text-anchor="" x="186.67" y="1167.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (95 samples, 19.15%)</title><rect x="335.9" y="1301" width="226.0" height="15.0" fill="rgb(244,31,21)" rx="2" ry="2" />
+<text text-anchor="" x="338.93" y="1311.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >object_vacall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (79 samples, 15.93%)</title><rect x="761.8" y="501" width="187.9" height="15.0" fill="rgb(229,187,2)" rx="2" ry="2" />
+<text text-anchor="" x="764.77" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (25 samples, 5.04%)</title><rect x="1094.8" y="1029" width="59.5" height="15.0" fill="rgb(214,96,11)" rx="2" ry="2" />
+<text text-anchor="" x="1097.84" y="1039.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyCFun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (2 samples, 0.40%)</title><rect x="602.4" y="1205" width="4.7" height="15.0" fill="rgb(220,171,26)" rx="2" ry="2" />
+<text text-anchor="" x="605.38" y="1215.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (17 samples, 3.43%)</title><rect x="176.5" y="1205" width="40.5" height="15.0" fill="rgb(214,79,42)" rx="2" ry="2" />
+<text text-anchor="" x="179.53" y="1215.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (10 samples, 2.02%)</title><rect x="925.9" y="133" width="23.8" height="15.0" fill="rgb(206,229,52)" rx="2" ry="2" />
+<text text-anchor="" x="928.93" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (4 samples, 0.81%)</title><rect x="1180.5" y="1397" width="9.5" height="15.0" fill="rgb(244,35,15)" rx="2" ry="2" />
+<text text-anchor="" x="1183.48" y="1407.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (10 samples, 2.02%)</title><rect x="583.3" y="1333" width="23.8" height="15.0" fill="rgb(205,3,45)" rx="2" ry="2" />
+<text text-anchor="" x="586.35" y="1343.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (31 samples, 6.25%)</title><rect x="876.0" y="229" width="73.7" height="15.0" fill="rgb(213,106,5)" rx="2" ry="2" />
+<text text-anchor="" x="878.97" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (14 samples, 2.82%)</title><rect x="462.0" y="741" width="33.3" height="15.0" fill="rgb(214,208,29)" rx="2" ry="2" />
+<text text-anchor="" x="465.02" y="751.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (53 samples, 10.69%)</title><rect x="435.8" y="869" width="126.1" height="15.0" fill="rgb(228,63,35)" rx="2" ry="2" />
+<text text-anchor="" x="438.85" y="879.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallM..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (21 samples, 4.23%)</title><rect x="90.9" y="1253" width="49.9" height="15.0" fill="rgb(215,103,47)" rx="2" ry="2" />
+<text text-anchor="" x="93.89" y="1263.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >funct..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>all (496 samples, 100%)</title><rect x="10.0" y="1605" width="1180.0" height="15.0" fill="rgb(249,137,18)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="1615.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallFunctionVa.part.6 (147 samples, 29.64%)</title><rect x="616.7" y="1461" width="349.7" height="15.0" fill="rgb(212,176,35)" rx="2" ry="2" />
+<text text-anchor="" x="619.65" y="1471.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallFunctionVa.part.6</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (71 samples, 14.31%)</title><rect x="393.0" y="1141" width="168.9" height="15.0" fill="rgb(210,45,6)" rx="2" ry="2" />
+<text text-anchor="" x="396.02" y="1151.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (33 samples, 6.65%)</title><rect x="62.3" y="1445" width="78.5" height="15.0" fill="rgb(240,170,2)" rx="2" ry="2" />
+<text text-anchor="" x="65.34" y="1455.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin___import__ (143 samples, 28.83%)</title><rect x="626.2" y="1397" width="340.2" height="15.0" fill="rgb(237,165,43)" rx="2" ry="2" />
+<text text-anchor="" x="629.17" y="1407.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >builtin___import__</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="1187.6" y="1349" width="2.4" height="15.0" fill="rgb(241,206,50)" rx="2" ry="2" />
+<text text-anchor="" x="1190.62" y="1359.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="492.9" y="533" width="2.4" height="15.0" fill="rgb(249,125,45)" rx="2" ry="2" />
+<text text-anchor="" x="495.94" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (100 samples, 20.16%)</title><rect x="324.0" y="1381" width="237.9" height="15.0" fill="rgb(228,35,5)" rx="2" ry="2" />
+<text text-anchor="" x="327.03" y="1391.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyCFunction_Call</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (58 samples, 11.69%)</title><rect x="1016.3" y="1349" width="138.0" height="15.0" fill="rgb(229,144,37)" rx="2" ry="2" />
+<text text-anchor="" x="1019.33" y="1359.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >object_vacall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (69 samples, 13.91%)</title><rect x="397.8" y="1109" width="164.1" height="15.0" fill="rgb(224,124,40)" rx="2" ry="2" />
+<text text-anchor="" x="400.78" y="1119.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefa..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (27 samples, 5.44%)</title><rect x="152.7" y="1365" width="64.3" height="15.0" fill="rgb(244,114,51)" rx="2" ry="2" />
+<text text-anchor="" x="155.74" y="1375.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >functio..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallFunctionVa.part.6 (102 samples, 20.56%)</title><rect x="319.3" y="1413" width="242.6" height="15.0" fill="rgb(254,194,17)" rx="2" ry="2" />
+<text text-anchor="" x="322.27" y="1423.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallFunctionVa.part.6</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (94 samples, 18.95%)</title><rect x="338.3" y="1285" width="223.6" height="15.0" fill="rgb(225,98,11)" rx="2" ry="2" />
+<text text-anchor="" x="341.31" y="1295.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (9 samples, 1.81%)</title><rect x="281.2" y="1093" width="21.4" height="15.0" fill="rgb(218,128,35)" rx="2" ry="2" />
+<text text-anchor="" x="284.21" y="1103.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin_exec (118 samples, 23.79%)</title><rect x="685.6" y="997" width="280.8" height="15.0" fill="rgb(246,73,9)" rx="2" ry="2" />
+<text text-anchor="" x="688.65" y="1007.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >builtin_exec</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (11 samples, 2.22%)</title><rect x="190.8" y="1109" width="26.2" height="15.0" fill="rgb(226,19,9)" rx="2" ry="2" />
+<text text-anchor="" x="193.81" y="1119.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (15 samples, 3.02%)</title><rect x="459.6" y="757" width="35.7" height="15.0" fill="rgb(205,138,35)" rx="2" ry="2" />
+<text text-anchor="" x="462.64" y="767.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallFunctionVa.part.6 (72 samples, 14.52%)</title><rect x="983.0" y="1461" width="171.3" height="15.0" fill="rgb(237,215,11)" rx="2" ry="2" />
+<text text-anchor="" x="986.02" y="1471.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallFunction..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (3 samples, 0.60%)</title><rect x="949.7" y="613" width="7.2" height="15.0" fill="rgb(254,23,23)" rx="2" ry="2" />
+<text text-anchor="" x="952.72" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (24 samples, 4.84%)</title><rect x="83.8" y="1301" width="57.0" height="15.0" fill="rgb(242,156,22)" rx="2" ry="2" />
+<text text-anchor="" x="86.75" y="1311.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_Import (1 samples, 0.20%)</title><rect x="48.1" y="1493" width="2.3" height="15.0" fill="rgb(236,161,32)" rx="2" ry="2" />
+<text text-anchor="" x="51.06" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_O (3 samples, 0.60%)</title><rect x="209.8" y="981" width="7.2" height="15.0" fill="rgb(242,75,2)" rx="2" ry="2" />
+<text text-anchor="" x="212.84" y="991.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (100 samples, 20.16%)</title><rect x="719.0" y="773" width="237.9" height="15.0" fill="rgb(205,118,21)" rx="2" ry="2" />
+<text text-anchor="" x="721.95" y="783.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (7 samples, 1.41%)</title><rect x="286.0" y="1061" width="16.6" height="15.0" fill="rgb(234,134,21)" rx="2" ry="2" />
+<text text-anchor="" x="288.97" y="1071.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>marshal_loads (2 samples, 0.40%)</title><rect x="945.0" y="53" width="4.7" height="15.0" fill="rgb(237,48,18)" rx="2" ry="2" />
+<text text-anchor="" x="947.96" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="914.0" y="53" width="2.4" height="15.0" fill="rgb(216,160,20)" rx="2" ry="2" />
+<text text-anchor="" x="917.03" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_FASTCALL (24 samples, 4.84%)</title><rect x="1097.2" y="1013" width="57.1" height="15.0" fill="rgb(205,41,51)" rx="2" ry="2" />
+<text text-anchor="" x="1100.22" y="1023.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cfunct..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Py_InitializeFromConfig (483 samples, 97.38%)</title><rect x="40.9" y="1541" width="1149.1" height="15.0" fill="rgb(239,119,15)" rx="2" ry="2" />
+<text text-anchor="" x="43.93" y="1551.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Py_InitializeFromConfig</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (132 samples, 26.61%)</title><rect x="652.3" y="1221" width="314.1" height="15.0" fill="rgb(243,23,40)" rx="2" ry="2" />
+<text text-anchor="" x="655.34" y="1231.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (7 samples, 1.41%)</title><rect x="1137.7" y="741" width="16.6" height="15.0" fill="rgb(236,194,32)" rx="2" ry="2" />
+<text text-anchor="" x="1140.66" y="751.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (18 samples, 3.63%)</title><rect x="564.3" y="1461" width="42.8" height="15.0" fill="rgb(247,152,32)" rx="2" ry="2" />
+<text text-anchor="" x="567.31" y="1471.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >func..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (31 samples, 6.25%)</title><rect x="228.9" y="1445" width="73.7" height="15.0" fill="rgb(240,64,26)" rx="2" ry="2" />
+<text text-anchor="" x="231.87" y="1455.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyCFunct..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyInit_posix (1 samples, 0.20%)</title><rect x="214.6" y="949" width="2.4" height="15.0" fill="rgb(209,191,27)" rx="2" ry="2" />
+<text text-anchor="" x="217.60" y="959.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (36 samples, 7.26%)</title><rect x="864.1" y="261" width="85.6" height="15.0" fill="rgb(209,145,38)" rx="2" ry="2" />
+<text text-anchor="" x="867.07" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_Ev..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (30 samples, 6.05%)</title><rect x="69.5" y="1397" width="71.3" height="15.0" fill="rgb(243,125,18)" rx="2" ry="2" />
+<text text-anchor="" x="72.48" y="1407.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunct..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Py_FinalizeEx (9 samples, 1.81%)</title><rect x="17.1" y="1541" width="21.4" height="15.0" fill="rgb(244,96,13)" rx="2" ry="2" />
+<text text-anchor="" x="20.14" y="1551.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (23 samples, 4.64%)</title><rect x="86.1" y="1285" width="54.7" height="15.0" fill="rgb(235,77,32)" rx="2" ry="2" />
+<text text-anchor="" x="89.13" y="1295.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (52 samples, 10.48%)</title><rect x="1030.6" y="1301" width="123.7" height="15.0" fill="rgb(222,179,18)" rx="2" ry="2" />
+<text text-anchor="" x="1033.60" y="1311.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFram..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (28 samples, 5.65%)</title><rect x="150.4" y="1381" width="66.6" height="15.0" fill="rgb(248,189,54)" rx="2" ry="2" />
+<text text-anchor="" x="153.36" y="1391.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (34 samples, 6.85%)</title><rect x="1073.4" y="1157" width="80.9" height="15.0" fill="rgb(207,24,11)" rx="2" ry="2" />
+<text text-anchor="" x="1076.43" y="1167.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_E..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (25 samples, 5.04%)</title><rect x="890.2" y="181" width="59.5" height="15.0" fill="rgb(231,202,46)" rx="2" ry="2" />
+<text text-anchor="" x="893.24" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (9 samples, 1.81%)</title><rect x="107.5" y="1141" width="21.5" height="15.0" fill="rgb(217,96,16)" rx="2" ry="2" />
+<text text-anchor="" x="110.54" y="1151.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (28 samples, 5.65%)</title><rect x="236.0" y="1397" width="66.6" height="15.0" fill="rgb(230,24,41)" rx="2" ry="2" />
+<text text-anchor="" x="239.01" y="1407.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImpor..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModule (150 samples, 30.24%)</title><rect x="609.5" y="1509" width="356.9" height="15.0" fill="rgb(248,45,44)" rx="2" ry="2" />
+<text text-anchor="" x="612.52" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportModule</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (16 samples, 3.23%)</title><rect x="102.8" y="1173" width="38.0" height="15.0" fill="rgb(236,168,17)" rx="2" ry="2" />
+<text text-anchor="" x="105.78" y="1183.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (8 samples, 1.61%)</title><rect x="374.0" y="1061" width="19.0" height="15.0" fill="rgb(213,180,50)" rx="2" ry="2" />
+<text text-anchor="" x="376.99" y="1071.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (15 samples, 3.02%)</title><rect x="266.9" y="1189" width="35.7" height="15.0" fill="rgb(238,24,34)" rx="2" ry="2" />
+<text text-anchor="" x="269.94" y="1199.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyObject_CallMethod (70 samples, 14.11%)</title><rect x="50.4" y="1525" width="166.6" height="15.0" fill="rgb(245,167,20)" rx="2" ry="2" />
+<text text-anchor="" x="53.44" y="1535.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyObject_CallMethod</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Py_RunMain (10 samples, 2.02%)</title><rect x="14.8" y="1557" width="23.7" height="15.0" fill="rgb(242,139,3)" rx="2" ry="2" />
+<text text-anchor="" x="17.76" y="1567.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_Import (35 samples, 7.06%)</title><rect x="219.4" y="1509" width="83.2" height="15.0" fill="rgb(251,203,43)" rx="2" ry="2" />
+<text text-anchor="" x="222.35" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (51 samples, 10.28%)</title><rect x="828.4" y="341" width="121.3" height="15.0" fill="rgb(231,155,29)" rx="2" ry="2" />
+<text text-anchor="" x="831.39" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFram..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_FASTCALL (83 samples, 16.73%)</title><rect x="752.3" y="565" width="197.4" height="15.0" fill="rgb(246,178,39)" rx="2" ry="2" />
+<text text-anchor="" x="755.26" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cfunction_vectorcall_FAST..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (32 samples, 6.45%)</title><rect x="64.7" y="1429" width="76.1" height="15.0" fill="rgb(254,19,12)" rx="2" ry="2" />
+<text text-anchor="" x="67.72" y="1439.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObjec..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (27 samples, 5.44%)</title><rect x="238.4" y="1381" width="64.2" height="15.0" fill="rgb(244,35,12)" rx="2" ry="2" />
+<text text-anchor="" x="241.39" y="1391.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObje..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (2 samples, 0.40%)</title><rect x="961.6" y="901" width="4.8" height="15.0" fill="rgb(208,5,0)" rx="2" ry="2" />
+<text text-anchor="" x="964.61" y="911.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (62 samples, 12.50%)</title><rect x="1006.8" y="1381" width="147.5" height="15.0" fill="rgb(228,91,52)" rx="2" ry="2" />
+<text text-anchor="" x="1009.81" y="1391.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportMod..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (17 samples, 3.43%)</title><rect x="521.5" y="645" width="40.4" height="15.0" fill="rgb(221,162,38)" rx="2" ry="2" />
+<text text-anchor="" x="524.49" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (80 samples, 16.13%)</title><rect x="759.4" y="517" width="190.3" height="15.0" fill="rgb(238,55,48)" rx="2" ry="2" />
+<text text-anchor="" x="762.40" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalCodeWithName</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModule (2 samples, 0.40%)</title><rect x="45.7" y="1509" width="4.7" height="15.0" fill="rgb(238,20,9)" rx="2" ry="2" />
+<text text-anchor="" x="48.69" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (56 samples, 11.29%)</title><rect x="1021.1" y="1333" width="133.2" height="15.0" fill="rgb(215,146,28)" rx="2" ry="2" />
+<text text-anchor="" x="1024.09" y="1343.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vect..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (57 samples, 11.49%)</title><rect x="814.1" y="373" width="135.6" height="15.0" fill="rgb(236,64,13)" rx="2" ry="2" />
+<text text-anchor="" x="817.11" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vecto..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (18 samples, 3.63%)</title><rect x="519.1" y="661" width="42.8" height="15.0" fill="rgb(207,14,36)" rx="2" ry="2" />
+<text text-anchor="" x="522.11" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (2 samples, 0.40%)</title><rect x="911.7" y="69" width="4.7" height="15.0" fill="rgb(218,107,30)" rx="2" ry="2" />
+<text text-anchor="" x="914.65" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (109 samples, 21.98%)</title><rect x="697.5" y="917" width="259.4" height="15.0" fill="rgb(210,102,10)" rx="2" ry="2" />
+<text text-anchor="" x="700.54" y="927.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallMethodIdObjArgs</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (5 samples, 1.01%)</title><rect x="1142.4" y="709" width="11.9" height="15.0" fill="rgb(236,60,31)" rx="2" ry="2" />
+<text text-anchor="" x="1145.42" y="719.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (9 samples, 1.81%)</title><rect x="473.9" y="661" width="21.4" height="15.0" fill="rgb(238,134,3)" rx="2" ry="2" />
+<text text-anchor="" x="476.91" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >o..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>collect.constprop.36 (1 samples, 0.20%)</title><rect x="24.3" y="1493" width="2.4" height="15.0" fill="rgb(219,105,20)" rx="2" ry="2" />
+<text text-anchor="" x="27.27" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (108 samples, 21.77%)</title><rect x="699.9" y="901" width="257.0" height="15.0" fill="rgb(205,40,16)" rx="2" ry="2" />
+<text text-anchor="" x="702.92" y="911.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >object_vacall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (2 samples, 0.40%)</title><rect x="550.0" y="469" width="4.8" height="15.0" fill="rgb(246,202,28)" rx="2" ry="2" />
+<text text-anchor="" x="553.04" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (25 samples, 5.04%)</title><rect x="243.1" y="1349" width="59.5" height="15.0" fill="rgb(242,221,54)" rx="2" ry="2" />
+<text text-anchor="" x="246.15" y="1359.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (2 samples, 0.40%)</title><rect x="1149.6" y="661" width="4.7" height="15.0" fill="rgb(220,107,15)" rx="2" ry="2" />
+<text text-anchor="" x="1152.56" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (26 samples, 5.24%)</title><rect x="155.1" y="1349" width="61.9" height="15.0" fill="rgb(209,112,44)" rx="2" ry="2" />
+<text text-anchor="" x="158.12" y="1359.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (19 samples, 3.83%)</title><rect x="95.6" y="1221" width="45.2" height="15.0" fill="rgb(247,185,51)" rx="2" ry="2" />
+<text text-anchor="" x="98.65" y="1231.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_Import (76 samples, 15.32%)</title><rect x="973.5" y="1493" width="180.8" height="15.0" fill="rgb(254,214,34)" rx="2" ry="2" />
+<text text-anchor="" x="976.51" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_Import</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="390.6" y="949" width="2.4" height="15.0" fill="rgb(217,122,48)" rx="2" ry="2" />
+<text text-anchor="" x="393.65" y="959.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (9 samples, 1.81%)</title><rect x="585.7" y="1317" width="21.4" height="15.0" fill="rgb(240,180,17)" rx="2" ry="2" />
+<text text-anchor="" x="588.73" y="1327.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >o..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (24 samples, 4.84%)</title><rect x="504.8" y="757" width="57.1" height="15.0" fill="rgb(248,176,39)" rx="2" ry="2" />
+<text text-anchor="" x="507.84" y="767.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >functi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>method_vectorcall (11 samples, 2.22%)</title><rect x="366.9" y="1109" width="26.1" height="15.0" fill="rgb(244,209,23)" rx="2" ry="2" />
+<text text-anchor="" x="369.85" y="1119.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >m..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModule (78 samples, 15.73%)</title><rect x="968.8" y="1509" width="185.5" height="15.0" fill="rgb(230,34,35)" rx="2" ry="2" />
+<text text-anchor="" x="971.75" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportModule</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (26 samples, 5.24%)</title><rect x="1092.5" y="1045" width="61.8" height="15.0" fill="rgb(227,227,52)" rx="2" ry="2" />
+<text text-anchor="" x="1095.46" y="1055.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEva..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (13 samples, 2.62%)</title><rect x="186.0" y="1141" width="31.0" height="15.0" fill="rgb(243,141,48)" rx="2" ry="2" />
+<text text-anchor="" x="189.05" y="1151.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (66 samples, 13.31%)</title><rect x="404.9" y="1061" width="157.0" height="15.0" fill="rgb(236,164,37)" rx="2" ry="2" />
+<text text-anchor="" x="407.92" y="1071.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (64 samples, 12.90%)</title><rect x="409.7" y="1029" width="152.2" height="15.0" fill="rgb(219,157,36)" rx="2" ry="2" />
+<text text-anchor="" x="412.68" y="1039.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (91 samples, 18.35%)</title><rect x="345.4" y="1237" width="216.5" height="15.0" fill="rgb(216,187,26)" rx="2" ry="2" />
+<text text-anchor="" x="348.44" y="1247.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>method_vectorcall (12 samples, 2.42%)</title><rect x="188.4" y="1125" width="28.6" height="15.0" fill="rgb(226,14,17)" rx="2" ry="2" />
+<text text-anchor="" x="191.43" y="1135.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >me..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (98 samples, 19.76%)</title><rect x="723.7" y="741" width="233.2" height="15.0" fill="rgb(244,68,3)" rx="2" ry="2" />
+<text text-anchor="" x="726.71" y="751.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (16 samples, 3.23%)</title><rect x="523.9" y="629" width="38.0" height="15.0" fill="rgb(215,75,29)" rx="2" ry="2" />
+<text text-anchor="" x="526.87" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (26 samples, 5.24%)</title><rect x="500.1" y="789" width="61.8" height="15.0" fill="rgb(254,42,30)" rx="2" ry="2" />
+<text text-anchor="" x="503.08" y="799.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEva..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (18 samples, 3.63%)</title><rect x="174.2" y="1221" width="42.8" height="15.0" fill="rgb(245,189,7)" rx="2" ry="2" />
+<text text-anchor="" x="177.15" y="1231.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_MakeTpCall (15 samples, 3.02%)</title><rect x="571.5" y="1413" width="35.6" height="15.0" fill="rgb(232,121,7)" rx="2" ry="2" />
+<text text-anchor="" x="574.45" y="1423.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (15 samples, 3.02%)</title><rect x="181.3" y="1173" width="35.7" height="15.0" fill="rgb(249,216,17)" rx="2" ry="2" />
+<text text-anchor="" x="184.29" y="1183.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>r_object (1 samples, 0.20%)</title><rect x="947.3" y="37" width="2.4" height="15.0" fill="rgb(210,42,8)" rx="2" ry="2" />
+<text text-anchor="" x="950.34" y="47.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (99 samples, 19.96%)</title><rect x="721.3" y="757" width="235.6" height="15.0" fill="rgb(249,119,14)" rx="2" ry="2" />
+<text text-anchor="" x="724.33" y="767.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (16 samples, 3.23%)</title><rect x="569.1" y="1429" width="38.0" height="15.0" fill="rgb(249,137,25)" rx="2" ry="2" />
+<text text-anchor="" x="572.07" y="1439.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (8 samples, 1.61%)</title><rect x="283.6" y="1077" width="19.0" height="15.0" fill="rgb(234,41,25)" rx="2" ry="2" />
+<text text-anchor="" x="286.59" y="1087.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>r_object (2 samples, 0.40%)</title><rect x="297.9" y="981" width="4.7" height="15.0" fill="rgb(217,92,38)" rx="2" ry="2" />
+<text text-anchor="" x="300.86" y="991.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Py_BytesMain (495 samples, 99.80%)</title><rect x="12.4" y="1573" width="1177.6" height="15.0" fill="rgb(224,107,7)" rx="2" ry="2" />
+<text text-anchor="" x="15.38" y="1583.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Py_BytesMain</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_O (3 samples, 0.60%)</title><rect x="942.6" y="69" width="7.1" height="15.0" fill="rgb(250,167,14)" rx="2" ry="2" />
+<text text-anchor="" x="945.58" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (5 samples, 1.01%)</title><rect x="483.4" y="597" width="11.9" height="15.0" fill="rgb(222,153,12)" rx="2" ry="2" />
+<text text-anchor="" x="486.43" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin_exec (59 samples, 11.90%)</title><rect x="421.6" y="949" width="140.3" height="15.0" fill="rgb(231,18,28)" rx="2" ry="2" />
+<text text-anchor="" x="424.57" y="959.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >builtin_exec</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (16 samples, 3.23%)</title><rect x="1116.2" y="885" width="38.1" height="15.0" fill="rgb(225,224,21)" rx="2" ry="2" />
+<text text-anchor="" x="1119.25" y="895.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (17 samples, 3.43%)</title><rect x="100.4" y="1189" width="40.4" height="15.0" fill="rgb(228,67,18)" rx="2" ry="2" />
+<text text-anchor="" x="103.40" y="1199.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (8 samples, 1.61%)</title><rect x="1171.0" y="1461" width="19.0" height="15.0" fill="rgb(231,36,5)" rx="2" ry="2" />
+<text text-anchor="" x="1173.97" y="1471.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (17 samples, 3.43%)</title><rect x="1113.9" y="901" width="40.4" height="15.0" fill="rgb(208,121,2)" rx="2" ry="2" />
+<text text-anchor="" x="1116.87" y="911.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >obj..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (16 samples, 3.23%)</title><rect x="178.9" y="1189" width="38.1" height="15.0" fill="rgb(219,52,46)" rx="2" ry="2" />
+<text text-anchor="" x="181.91" y="1199.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyMarshal_ReadObjectFromString (3 samples, 0.60%)</title><rect x="295.5" y="997" width="7.1" height="15.0" fill="rgb(218,6,7)" rx="2" ry="2" />
+<text text-anchor="" x="298.48" y="1007.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (141 samples, 28.43%)</title><rect x="630.9" y="1365" width="335.5" height="15.0" fill="rgb(225,14,9)" rx="2" ry="2" />
+<text text-anchor="" x="633.93" y="1375.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallMethodIdObjArgs</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (4 samples, 0.81%)</title><rect x="1144.8" y="693" width="9.5" height="15.0" fill="rgb(235,72,15)" rx="2" ry="2" />
+<text text-anchor="" x="1147.80" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (13 samples, 2.62%)</title><rect x="1123.4" y="837" width="30.9" height="15.0" fill="rgb(246,119,53)" rx="2" ry="2" />
+<text text-anchor="" x="1126.39" y="847.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (19 samples, 3.83%)</title><rect x="561.9" y="1477" width="45.2" height="15.0" fill="rgb(246,65,54)" rx="2" ry="2" />
+<text text-anchor="" x="564.94" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyF..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (24 samples, 4.84%)</title><rect x="245.5" y="1333" width="57.1" height="15.0" fill="rgb(232,211,12)" rx="2" ry="2" />
+<text text-anchor="" x="248.52" y="1343.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >functi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (38 samples, 7.66%)</title><rect x="1063.9" y="1189" width="90.4" height="15.0" fill="rgb(247,203,1)" rx="2" ry="2" />
+<text text-anchor="" x="1066.91" y="1199.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_call_varargs (30 samples, 6.05%)</title><rect x="231.2" y="1429" width="71.4" height="15.0" fill="rgb(212,77,9)" rx="2" ry="2" />
+<text text-anchor="" x="234.25" y="1439.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cfunctio..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (63 samples, 12.70%)</title><rect x="799.8" y="405" width="149.9" height="15.0" fill="rgb(244,15,35)" rx="2" ry="2" />
+<text text-anchor="" x="802.84" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_imp_create_builtin (2 samples, 0.40%)</title><rect x="212.2" y="965" width="4.8" height="15.0" fill="rgb(226,139,31)" rx="2" ry="2" />
+<text text-anchor="" x="215.22" y="975.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (86 samples, 17.34%)</title><rect x="357.3" y="1157" width="204.6" height="15.0" fill="rgb(249,217,44)" rx="2" ry="2" />
+<text text-anchor="" x="360.34" y="1167.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (20 samples, 4.03%)</title><rect x="514.4" y="693" width="47.5" height="15.0" fill="rgb(231,162,3)" rx="2" ry="2" />
+<text text-anchor="" x="517.35" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >func..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (15 samples, 3.02%)</title><rect x="105.2" y="1157" width="35.6" height="15.0" fill="rgb(221,133,9)" rx="2" ry="2" />
+<text text-anchor="" x="108.16" y="1167.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (29 samples, 5.85%)</title><rect x="1085.3" y="1093" width="69.0" height="15.0" fill="rgb(240,113,13)" rx="2" ry="2" />
+<text text-anchor="" x="1088.32" y="1103.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (130 samples, 26.21%)</title><rect x="657.1" y="1189" width="309.3" height="15.0" fill="rgb(217,223,7)" rx="2" ry="2" />
+<text text-anchor="" x="660.10" y="1199.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (6 samples, 1.21%)</title><rect x="1140.0" y="725" width="14.3" height="15.0" fill="rgb(231,213,33)" rx="2" ry="2" />
+<text text-anchor="" x="1143.04" y="735.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (12 samples, 2.42%)</title><rect x="364.5" y="1125" width="28.5" height="15.0" fill="rgb(207,126,44)" rx="2" ry="2" />
+<text text-anchor="" x="367.48" y="1135.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (30 samples, 6.05%)</title><rect x="1082.9" y="1109" width="71.4" height="15.0" fill="rgb(205,172,18)" rx="2" ry="2" />
+<text text-anchor="" x="1085.94" y="1119.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_E..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (138 samples, 27.82%)</title><rect x="638.1" y="1317" width="328.3" height="15.0" fill="rgb(217,83,43)" rx="2" ry="2" />
+<text text-anchor="" x="641.06" y="1327.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyTypes_Init (1 samples, 0.20%)</title><rect x="1156.7" y="1509" width="2.4" height="15.0" fill="rgb(206,86,9)" rx="2" ry="2" />
+<text text-anchor="" x="1159.69" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (51 samples, 10.28%)</title><rect x="440.6" y="853" width="121.3" height="15.0" fill="rgb(206,34,35)" rx="2" ry="2" />
+<text text-anchor="" x="443.60" y="863.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >object_vacall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (96 samples, 19.35%)</title><rect x="333.5" y="1317" width="228.4" height="15.0" fill="rgb(237,57,31)" rx="2" ry="2" />
+<text text-anchor="" x="336.55" y="1327.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallMethodIdObjArgs</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (65 samples, 13.10%)</title><rect x="407.3" y="1045" width="154.6" height="15.0" fill="rgb(227,92,26)" rx="2" ry="2" />
+<text text-anchor="" x="410.30" y="1055.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDe..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportFrozenModuleObject (1 samples, 0.20%)</title><rect x="1163.8" y="1477" width="2.4" height="15.0" fill="rgb(234,19,54)" rx="2" ry="2" />
+<text text-anchor="" x="1166.83" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (14 samples, 2.82%)</title><rect x="916.4" y="165" width="33.3" height="15.0" fill="rgb(214,26,6)" rx="2" ry="2" />
+<text text-anchor="" x="919.41" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="552.4" y="453" width="2.4" height="15.0" fill="rgb(206,182,15)" rx="2" ry="2" />
+<text text-anchor="" x="555.42" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (88 samples, 17.74%)</title><rect x="352.6" y="1189" width="209.3" height="15.0" fill="rgb(248,121,49)" rx="2" ry="2" />
+<text text-anchor="" x="355.58" y="1199.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (50 samples, 10.08%)</title><rect x="1035.4" y="1285" width="118.9" height="15.0" fill="rgb(243,105,21)" rx="2" ry="2" />
+<text text-anchor="" x="1038.36" y="1295.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyImport_Cleanup (5 samples, 1.01%)</title><rect x="26.7" y="1509" width="11.8" height="15.0" fill="rgb(242,43,40)" rx="2" ry="2" />
+<text text-anchor="" x="29.65" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_imp_get_frozen_object (4 samples, 0.81%)</title><rect x="119.4" y="1061" width="9.6" height="15.0" fill="rgb(225,67,33)" rx="2" ry="2" />
+<text text-anchor="" x="122.44" y="1071.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>init_importlib (13 samples, 2.62%)</title><rect x="1159.1" y="1509" width="30.9" height="15.0" fill="rgb(212,13,0)" rx="2" ry="2" />
+<text text-anchor="" x="1162.07" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >in..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (9 samples, 1.81%)</title><rect x="195.6" y="1077" width="21.4" height="15.0" fill="rgb(216,179,41)" rx="2" ry="2" />
+<text text-anchor="" x="198.56" y="1087.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (11 samples, 2.22%)</title><rect x="469.2" y="693" width="26.1" height="15.0" fill="rgb(225,171,5)" rx="2" ry="2" />
+<text text-anchor="" x="472.15" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (120 samples, 24.19%)</title><rect x="680.9" y="1029" width="285.5" height="15.0" fill="rgb(208,199,41)" rx="2" ry="2" />
+<text text-anchor="" x="683.89" y="1039.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyCFunction_Call</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (63 samples, 12.70%)</title><rect x="412.1" y="1013" width="149.8" height="15.0" fill="rgb(246,17,34)" rx="2" ry="2" />
+<text text-anchor="" x="415.06" y="1023.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalCodeWit..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleNoBlock (105 samples, 21.17%)</title><rect x="312.1" y="1461" width="249.8" height="15.0" fill="rgb(252,141,8)" rx="2" ry="2" />
+<text text-anchor="" x="315.14" y="1471.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportModuleNoBlock</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_FASTCALL (5 samples, 1.01%)</title><rect x="542.9" y="517" width="11.9" height="15.0" fill="rgb(209,22,37)" rx="2" ry="2" />
+<text text-anchor="" x="545.90" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (17 samples, 3.43%)</title><rect x="566.7" y="1445" width="40.4" height="15.0" fill="rgb(246,1,28)" rx="2" ry="2" />
+<text text-anchor="" x="569.69" y="1455.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin___import__ (12 samples, 2.42%)</title><rect x="466.8" y="709" width="28.5" height="15.0" fill="rgb(231,172,50)" rx="2" ry="2" />
+<text text-anchor="" x="469.77" y="719.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >bu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (22 samples, 4.44%)</title><rect x="509.6" y="725" width="52.3" height="15.0" fill="rgb(216,16,43)" rx="2" ry="2" />
+<text text-anchor="" x="512.60" y="735.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin___import__ (64 samples, 12.90%)</title><rect x="1002.1" y="1397" width="152.2" height="15.0" fill="rgb(212,25,7)" rx="2" ry="2" />
+<text text-anchor="" x="1005.06" y="1407.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >builtin___import__</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (10 samples, 2.02%)</title><rect x="278.8" y="1109" width="23.8" height="15.0" fill="rgb(253,24,6)" rx="2" ry="2" />
+<text text-anchor="" x="281.83" y="1119.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (3 samples, 0.60%)</title><rect x="959.2" y="917" width="7.2" height="15.0" fill="rgb(229,220,46)" rx="2" ry="2" />
+<text text-anchor="" x="962.23" y="927.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (32 samples, 6.45%)</title><rect x="1078.2" y="1141" width="76.1" height="15.0" fill="rgb(243,119,54)" rx="2" ry="2" />
+<text text-anchor="" x="1081.19" y="1151.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunct..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (6 samples, 1.21%)</title><rect x="481.0" y="613" width="14.3" height="15.0" fill="rgb(209,198,48)" rx="2" ry="2" />
+<text text-anchor="" x="484.05" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (69 samples, 13.91%)</title><rect x="785.6" y="437" width="164.1" height="15.0" fill="rgb(236,38,26)" rx="2" ry="2" />
+<text text-anchor="" x="788.56" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (95 samples, 19.15%)</title><rect x="730.8" y="693" width="226.1" height="15.0" fill="rgb(252,186,14)" rx="2" ry="2" />
+<text text-anchor="" x="733.85" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (6 samples, 1.21%)</title><rect x="378.8" y="1029" width="14.2" height="15.0" fill="rgb(230,229,40)" rx="2" ry="2" />
+<text text-anchor="" x="381.75" y="1039.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyCodec_Lookup (126 samples, 25.40%)</title><rect x="307.4" y="1493" width="299.7" height="15.0" fill="rgb(236,148,4)" rx="2" ry="2" />
+<text text-anchor="" x="310.38" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyCodec_Lookup</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (20 samples, 4.03%)</title><rect x="93.3" y="1237" width="47.5" height="15.0" fill="rgb(214,191,42)" rx="2" ry="2" />
+<text text-anchor="" x="96.27" y="1247.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin___import__ (98 samples, 19.76%)</title><rect x="328.8" y="1349" width="233.1" height="15.0" fill="rgb(233,140,52)" rx="2" ry="2" />
+<text text-anchor="" x="331.79" y="1359.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >builtin___import__</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="964.0" y="885" width="2.4" height="15.0" fill="rgb(217,70,36)" rx="2" ry="2" />
+<text text-anchor="" x="966.99" y="895.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (101 samples, 20.36%)</title><rect x="716.6" y="789" width="240.3" height="15.0" fill="rgb(217,91,23)" rx="2" ry="2" />
+<text text-anchor="" x="719.57" y="799.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (6 samples, 1.21%)</title><rect x="592.9" y="1269" width="14.2" height="15.0" fill="rgb(230,192,11)" rx="2" ry="2" />
+<text text-anchor="" x="595.86" y="1279.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="1151.9" y="645" width="2.4" height="15.0" fill="rgb(205,187,12)" rx="2" ry="2" />
+<text text-anchor="" x="1154.94" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (121 samples, 24.40%)</title><rect x="678.5" y="1045" width="287.9" height="15.0" fill="rgb(234,17,1)" rx="2" ry="2" />
+<text text-anchor="" x="681.51" y="1055.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_call_varargs (144 samples, 29.03%)</title><rect x="623.8" y="1413" width="342.6" height="15.0" fill="rgb(222,187,40)" rx="2" ry="2" />
+<text text-anchor="" x="626.79" y="1423.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cfunction_call_varargs</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (21 samples, 4.23%)</title><rect x="167.0" y="1269" width="50.0" height="15.0" fill="rgb(219,117,17)" rx="2" ry="2" />
+<text text-anchor="" x="170.02" y="1279.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (3 samples, 0.60%)</title><rect x="1147.2" y="677" width="7.1" height="15.0" fill="rgb(240,62,8)" rx="2" ry="2" />
+<text text-anchor="" x="1150.18" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (139 samples, 28.02%)</title><rect x="635.7" y="1333" width="330.7" height="15.0" fill="rgb(221,191,21)" rx="2" ry="2" />
+<text text-anchor="" x="638.69" y="1343.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (68 samples, 13.71%)</title><rect x="992.5" y="1429" width="161.8" height="15.0" fill="rgb(218,176,37)" rx="2" ry="2" />
+<text text-anchor="" x="995.54" y="1439.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyCFunction_Call</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (123 samples, 24.80%)</title><rect x="673.8" y="1077" width="292.6" height="15.0" fill="rgb(233,161,3)" rx="2" ry="2" />
+<text text-anchor="" x="676.75" y="1087.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyObject_CallFunction (74 samples, 14.92%)</title><rect x="978.3" y="1477" width="176.0" height="15.0" fill="rgb(236,25,44)" rx="2" ry="2" />
+<text text-anchor="" x="981.27" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyObject_CallFunction</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (4 samples, 0.81%)</title><rect x="940.2" y="85" width="9.5" height="15.0" fill="rgb(223,126,30)" rx="2" ry="2" />
+<text text-anchor="" x="943.20" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (44 samples, 8.87%)</title><rect x="1049.6" y="1237" width="104.7" height="15.0" fill="rgb(226,87,34)" rx="2" ry="2" />
+<text text-anchor="" x="1052.64" y="1247.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalF..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_FASTCALL (5 samples, 1.01%)</title><rect x="129.0" y="1141" width="11.8" height="15.0" fill="rgb(237,122,36)" rx="2" ry="2" />
+<text text-anchor="" x="131.95" y="1151.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (2 samples, 0.40%)</title><rect x="490.6" y="549" width="4.7" height="15.0" fill="rgb(219,140,46)" rx="2" ry="2" />
+<text text-anchor="" x="493.56" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportFrozenModule (2 samples, 0.40%)</title><rect x="1161.5" y="1493" width="4.7" height="15.0" fill="rgb(212,48,32)" rx="2" ry="2" />
+<text text-anchor="" x="1164.45" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (3 samples, 0.60%)</title><rect x="600.0" y="1221" width="7.1" height="15.0" fill="rgb(211,16,2)" rx="2" ry="2" />
+<text text-anchor="" x="603.00" y="1231.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (94 samples, 18.95%)</title><rect x="733.2" y="677" width="223.7" height="15.0" fill="rgb(216,201,3)" rx="2" ry="2" />
+<text text-anchor="" x="736.23" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (16 samples, 3.23%)</title><rect x="264.6" y="1205" width="38.0" height="15.0" fill="rgb(251,10,45)" rx="2" ry="2" />
+<text text-anchor="" x="267.56" y="1215.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (68 samples, 13.71%)</title><rect x="55.2" y="1493" width="161.8" height="15.0" fill="rgb(221,14,38)" rx="2" ry="2" />
+<text text-anchor="" x="58.20" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (122 samples, 24.60%)</title><rect x="676.1" y="1061" width="290.3" height="15.0" fill="rgb(209,213,14)" rx="2" ry="2" />
+<text text-anchor="" x="679.13" y="1071.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalCodeWithName</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (125 samples, 25.20%)</title><rect x="669.0" y="1109" width="297.4" height="15.0" fill="rgb(251,117,3)" rx="2" ry="2" />
+<text text-anchor="" x="671.99" y="1119.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (20 samples, 4.03%)</title><rect x="169.4" y="1253" width="47.6" height="15.0" fill="rgb(240,5,43)" rx="2" ry="2" />
+<text text-anchor="" x="172.40" y="1263.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyF..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (56 samples, 11.29%)</title><rect x="428.7" y="901" width="133.2" height="15.0" fill="rgb(236,136,11)" rx="2" ry="2" />
+<text text-anchor="" x="431.71" y="911.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFram..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (17 samples, 3.43%)</title><rect x="262.2" y="1221" width="40.4" height="15.0" fill="rgb(238,1,28)" rx="2" ry="2" />
+<text text-anchor="" x="265.18" y="1231.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (57 samples, 11.49%)</title><rect x="426.3" y="917" width="135.6" height="15.0" fill="rgb(215,96,47)" rx="2" ry="2" />
+<text text-anchor="" x="429.33" y="927.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalCodeW..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (22 samples, 4.44%)</title><rect x="88.5" y="1269" width="52.3" height="15.0" fill="rgb(225,184,46)" rx="2" ry="2" />
+<text text-anchor="" x="91.51" y="1279.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin_exec (4 samples, 0.81%)</title><rect x="545.3" y="501" width="9.5" height="15.0" fill="rgb(225,6,30)" rx="2" ry="2" />
+<text text-anchor="" x="548.28" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (18 samples, 3.63%)</title><rect x="452.5" y="805" width="42.8" height="15.0" fill="rgb(246,89,25)" rx="2" ry="2" />
+<text text-anchor="" x="455.50" y="815.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (26 samples, 5.24%)</title><rect x="240.8" y="1365" width="61.8" height="15.0" fill="rgb(225,196,41)" rx="2" ry="2" />
+<text text-anchor="" x="243.77" y="1375.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >object..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (124 samples, 25.00%)</title><rect x="671.4" y="1093" width="295.0" height="15.0" fill="rgb(216,208,30)" rx="2" ry="2" />
+<text text-anchor="" x="674.37" y="1103.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (128 samples, 25.81%)</title><rect x="661.9" y="1157" width="304.5" height="15.0" fill="rgb(244,221,41)" rx="2" ry="2" />
+<text text-anchor="" x="664.85" y="1167.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (92 samples, 18.55%)</title><rect x="738.0" y="645" width="218.9" height="15.0" fill="rgb(251,215,37)" rx="2" ry="2" />
+<text text-anchor="" x="740.98" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (97 samples, 19.56%)</title><rect x="331.2" y="1333" width="230.7" height="15.0" fill="rgb(222,202,15)" rx="2" ry="2" />
+<text text-anchor="" x="334.17" y="1343.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportModuleLevelObject</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (13 samples, 2.62%)</title><rect x="362.1" y="1141" width="30.9" height="15.0" fill="rgb(216,77,3)" rx="2" ry="2" />
+<text text-anchor="" x="365.10" y="1151.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyObject_CallFunction (148 samples, 29.84%)</title><rect x="614.3" y="1477" width="352.1" height="15.0" fill="rgb(253,125,46)" rx="2" ry="2" />
+<text text-anchor="" x="617.27" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyObject_CallFunction</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (93 samples, 18.75%)</title><rect x="735.6" y="661" width="221.3" height="15.0" fill="rgb(225,127,47)" rx="2" ry="2" />
+<text text-anchor="" x="738.60" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (102 samples, 20.56%)</title><rect x="714.2" y="805" width="242.7" height="15.0" fill="rgb(254,164,15)" rx="2" ry="2" />
+<text text-anchor="" x="717.19" y="815.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (8 samples, 1.61%)</title><rect x="897.4" y="165" width="19.0" height="15.0" fill="rgb(210,174,19)" rx="2" ry="2" />
+<text text-anchor="" x="900.38" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (8 samples, 1.61%)</title><rect x="476.3" y="645" width="19.0" height="15.0" fill="rgb(229,109,21)" rx="2" ry="2" />
+<text text-anchor="" x="479.29" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_imp_get_frozen_object (4 samples, 0.81%)</title><rect x="293.1" y="1013" width="9.5" height="15.0" fill="rgb(208,113,46)" rx="2" ry="2" />
+<text text-anchor="" x="296.10" y="1023.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="138.5" y="1077" width="2.3" height="15.0" fill="rgb(225,6,49)" rx="2" ry="2" />
+<text text-anchor="" x="141.47" y="1087.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (126 samples, 25.40%)</title><rect x="666.6" y="1125" width="299.8" height="15.0" fill="rgb(224,63,9)" rx="2" ry="2" />
+<text text-anchor="" x="669.61" y="1135.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (7 samples, 1.41%)</title><rect x="1173.3" y="1445" width="16.7" height="15.0" fill="rgb(211,144,43)" rx="2" ry="2" />
+<text text-anchor="" x="1176.35" y="1455.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (22 samples, 4.44%)</title><rect x="250.3" y="1301" width="52.3" height="15.0" fill="rgb(240,4,33)" rx="2" ry="2" />
+<text text-anchor="" x="253.28" y="1311.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyObject_CallFunction (103 samples, 20.77%)</title><rect x="316.9" y="1429" width="245.0" height="15.0" fill="rgb(230,220,4)" rx="2" ry="2" />
+<text text-anchor="" x="319.90" y="1439.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyObject_CallFunction</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (8 samples, 1.61%)</title><rect x="109.9" y="1125" width="19.1" height="15.0" fill="rgb(251,126,52)" rx="2" ry="2" />
+<text text-anchor="" x="112.92" y="1135.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (21 samples, 4.23%)</title><rect x="1104.4" y="965" width="49.9" height="15.0" fill="rgb(251,2,49)" rx="2" ry="2" />
+<text text-anchor="" x="1107.35" y="975.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (39 samples, 7.86%)</title><rect x="856.9" y="277" width="92.8" height="15.0" fill="rgb(244,115,25)" rx="2" ry="2" />
+<text text-anchor="" x="859.94" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_Eval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (4 samples, 0.81%)</title><rect x="597.6" y="1237" width="9.5" height="15.0" fill="rgb(228,154,35)" rx="2" ry="2" />
+<text text-anchor="" x="600.62" y="1247.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (9 samples, 1.81%)</title><rect x="1132.9" y="773" width="21.4" height="15.0" fill="rgb(210,200,7)" rx="2" ry="2" />
+<text text-anchor="" x="1135.90" y="783.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>pymain_init (484 samples, 97.58%)</title><rect x="38.5" y="1557" width="1151.5" height="15.0" fill="rgb(247,38,43)" rx="2" ry="2" />
+<text text-anchor="" x="41.55" y="1567.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >pymain_init</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (84 samples, 16.94%)</title><rect x="749.9" y="581" width="199.8" height="15.0" fill="rgb(253,53,6)" rx="2" ry="2" />
+<text text-anchor="" x="752.88" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyCFunction_Call</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalCode (3 samples, 0.60%)</title><rect x="909.3" y="85" width="7.1" height="15.0" fill="rgb(247,12,30)" rx="2" ry="2" />
+<text text-anchor="" x="912.27" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (129 samples, 26.01%)</title><rect x="659.5" y="1173" width="306.9" height="15.0" fill="rgb(215,131,25)" rx="2" ry="2" />
+<text text-anchor="" x="662.48" y="1183.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallFunctionVa.part.6 (9 samples, 1.81%)</title><rect x="1168.6" y="1477" width="21.4" height="15.0" fill="rgb(237,62,46)" rx="2" ry="2" />
+<text text-anchor="" x="1171.59" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (25 samples, 5.04%)</title><rect x="157.5" y="1333" width="59.5" height="15.0" fill="rgb(215,8,31)" rx="2" ry="2" />
+<text text-anchor="" x="160.50" y="1343.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEva..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (31 samples, 6.25%)</title><rect x="1080.6" y="1125" width="73.7" height="15.0" fill="rgb(251,23,10)" rx="2" ry="2" />
+<text text-anchor="" x="1083.56" y="1135.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalCode (58 samples, 11.69%)</title><rect x="424.0" y="933" width="137.9" height="15.0" fill="rgb(225,163,44)" rx="2" ry="2" />
+<text text-anchor="" x="426.95" y="943.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalCode</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (12 samples, 2.42%)</title><rect x="1125.8" y="821" width="28.5" height="15.0" fill="rgb(250,33,29)" rx="2" ry="2" />
+<text text-anchor="" x="1128.77" y="831.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (105 samples, 21.17%)</title><rect x="707.1" y="853" width="249.8" height="15.0" fill="rgb(224,156,20)" rx="2" ry="2" />
+<text text-anchor="" x="710.06" y="863.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (18 samples, 3.63%)</title><rect x="98.0" y="1205" width="42.8" height="15.0" fill="rgb(215,3,25)" rx="2" ry="2" />
+<text text-anchor="" x="101.02" y="1215.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyF..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (7 samples, 1.41%)</title><rect x="590.5" y="1285" width="16.6" height="15.0" fill="rgb(216,20,46)" rx="2" ry="2" />
+<text text-anchor="" x="593.48" y="1295.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyObject_CallFunction (34 samples, 6.85%)</title><rect x="221.7" y="1493" width="80.9" height="15.0" fill="rgb(221,69,25)" rx="2" ry="2" />
+<text text-anchor="" x="224.73" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyObject_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (23 samples, 4.64%)</title><rect x="162.3" y="1301" width="54.7" height="15.0" fill="rgb(213,63,0)" rx="2" ry="2" />
+<text text-anchor="" x="165.26" y="1311.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >funct..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyObject_CallMethod (10 samples, 2.02%)</title><rect x="1166.2" y="1493" width="23.8" height="15.0" fill="rgb(217,13,18)" rx="2" ry="2" />
+<text text-anchor="" x="1169.21" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (66 samples, 13.31%)</title><rect x="60.0" y="1461" width="157.0" height="15.0" fill="rgb(247,146,17)" rx="2" ry="2" />
+<text text-anchor="" x="62.96" y="1471.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDef..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (11 samples, 2.22%)</title><rect x="1128.1" y="805" width="26.2" height="15.0" fill="rgb(242,146,39)" rx="2" ry="2" />
+<text text-anchor="" x="1131.15" y="815.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >f..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (28 samples, 5.65%)</title><rect x="74.2" y="1365" width="66.6" height="15.0" fill="rgb(222,77,31)" rx="2" ry="2" />
+<text text-anchor="" x="77.23" y="1375.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (22 samples, 4.44%)</title><rect x="164.6" y="1285" width="52.4" height="15.0" fill="rgb(223,52,15)" rx="2" ry="2" />
+<text text-anchor="" x="167.64" y="1295.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEva..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (27 samples, 5.44%)</title><rect x="497.7" y="805" width="64.2" height="15.0" fill="rgb(220,89,34)" rx="2" ry="2" />
+<text text-anchor="" x="500.70" y="815.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (61 samples, 12.30%)</title><rect x="416.8" y="981" width="145.1" height="15.0" fill="rgb(210,33,33)" rx="2" ry="2" />
+<text text-anchor="" x="419.81" y="991.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyCFunction_Call</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (2 samples, 0.40%)</title><rect x="136.1" y="1093" width="4.7" height="15.0" fill="rgb(245,167,24)" rx="2" ry="2" />
+<text text-anchor="" x="139.09" y="1103.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalCode (117 samples, 23.59%)</title><rect x="688.0" y="981" width="278.4" height="15.0" fill="rgb(235,85,6)" rx="2" ry="2" />
+<text text-anchor="" x="691.02" y="991.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalCode</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>init_sys_streams (79 samples, 15.93%)</title><rect x="966.4" y="1525" width="187.9" height="15.0" fill="rgb(250,89,36)" rx="2" ry="2" />
+<text text-anchor="" x="969.37" y="1535.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >init_sys_streams</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (145 samples, 29.23%)</title><rect x="621.4" y="1429" width="345.0" height="15.0" fill="rgb(235,37,42)" rx="2" ry="2" />
+<text text-anchor="" x="624.41" y="1439.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyCFunction_Call</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_FASTCALL (60 samples, 12.10%)</title><rect x="419.2" y="965" width="142.7" height="15.0" fill="rgb(218,224,12)" rx="2" ry="2" />
+<text text-anchor="" x="422.19" y="975.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cfunction_vectorca..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (20 samples, 4.03%)</title><rect x="1106.7" y="949" width="47.6" height="15.0" fill="rgb(220,42,42)" rx="2" ry="2" />
+<text text-anchor="" x="1109.73" y="959.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (3 samples, 0.60%)</title><rect x="1182.9" y="1381" width="7.1" height="15.0" fill="rgb(244,62,2)" rx="2" ry="2" />
+<text text-anchor="" x="1185.86" y="1391.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (54 samples, 10.89%)</title><rect x="821.2" y="357" width="128.5" height="15.0" fill="rgb(236,210,18)" rx="2" ry="2" />
+<text text-anchor="" x="824.25" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fa..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (18 samples, 3.63%)</title><rect x="1111.5" y="917" width="42.8" height="15.0" fill="rgb(253,19,15)" rx="2" ry="2" />
+<text text-anchor="" x="1114.49" y="927.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyO..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>main (496 samples, 100.00%)</title><rect x="10.0" y="1589" width="1180.0" height="15.0" fill="rgb(209,146,10)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="1599.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >main</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_MakeTpCall (32 samples, 6.45%)</title><rect x="226.5" y="1461" width="76.1" height="15.0" fill="rgb(206,145,44)" rx="2" ry="2" />
+<text text-anchor="" x="229.49" y="1471.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObjec..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (96 samples, 19.35%)</title><rect x="728.5" y="709" width="228.4" height="15.0" fill="rgb(247,74,37)" rx="2" ry="2" />
+<text text-anchor="" x="731.47" y="719.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyMarshal_ReadObjectFromString (3 samples, 0.60%)</title><rect x="121.8" y="1045" width="7.2" height="15.0" fill="rgb(218,187,6)" rx="2" ry="2" />
+<text text-anchor="" x="124.81" y="1055.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (15 samples, 3.02%)</title><rect x="526.2" y="613" width="35.7" height="15.0" fill="rgb(219,100,39)" rx="2" ry="2" />
+<text text-anchor="" x="529.25" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (11 samples, 2.22%)</title><rect x="276.5" y="1125" width="26.1" height="15.0" fill="rgb(250,171,32)" rx="2" ry="2" />
+<text text-anchor="" x="279.45" y="1135.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (17 samples, 3.43%)</title><rect x="454.9" y="789" width="40.4" height="15.0" fill="rgb(246,183,43)" rx="2" ry="2" />
+<text text-anchor="" x="457.88" y="799.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (48 samples, 9.68%)</title><rect x="835.5" y="325" width="114.2" height="15.0" fill="rgb(222,225,41)" rx="2" ry="2" />
+<text text-anchor="" x="838.52" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (25 samples, 5.04%)</title><rect x="502.5" y="773" width="59.4" height="15.0" fill="rgb(241,31,10)" rx="2" ry="2" />
+<text text-anchor="" x="505.46" y="783.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (6 samples, 1.21%)</title><rect x="288.3" y="1045" width="14.3" height="15.0" fill="rgb(216,134,20)" rx="2" ry="2" />
+<text text-anchor="" x="291.35" y="1055.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (136 samples, 27.42%)</title><rect x="642.8" y="1285" width="323.6" height="15.0" fill="rgb(227,206,36)" rx="2" ry="2" />
+<text text-anchor="" x="645.82" y="1295.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (4 samples, 0.81%)</title><rect x="956.9" y="933" width="9.5" height="15.0" fill="rgb(252,94,53)" rx="2" ry="2" />
+<text text-anchor="" x="959.85" y="943.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (40 samples, 8.06%)</title><rect x="1059.2" y="1205" width="95.1" height="15.0" fill="rgb(243,200,20)" rx="2" ry="2" />
+<text text-anchor="" x="1062.15" y="1215.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin_exec (23 samples, 4.64%)</title><rect x="1099.6" y="997" width="54.7" height="15.0" fill="rgb(233,151,43)" rx="2" ry="2" />
+<text text-anchor="" x="1102.60" y="1007.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >built..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (55 samples, 11.09%)</title><rect x="431.1" y="885" width="130.8" height="15.0" fill="rgb(226,33,52)" rx="2" ry="2" />
+<text text-anchor="" x="434.09" y="895.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportM..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (93 samples, 18.75%)</title><rect x="340.7" y="1269" width="221.2" height="15.0" fill="rgb(217,101,9)" rx="2" ry="2" />
+<text text-anchor="" x="343.69" y="1279.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (7 samples, 1.41%)</title><rect x="200.3" y="1045" width="16.7" height="15.0" fill="rgb(231,11,20)" rx="2" ry="2" />
+<text text-anchor="" x="203.32" y="1055.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_Import (104 samples, 20.97%)</title><rect x="314.5" y="1445" width="247.4" height="15.0" fill="rgb(246,220,1)" rx="2" ry="2" />
+<text text-anchor="" x="317.52" y="1455.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_Import</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (7 samples, 1.41%)</title><rect x="112.3" y="1109" width="16.7" height="15.0" fill="rgb(207,223,4)" rx="2" ry="2" />
+<text text-anchor="" x="115.30" y="1119.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (7 samples, 1.41%)</title><rect x="899.8" y="149" width="16.6" height="15.0" fill="rgb(228,141,26)" rx="2" ry="2" />
+<text text-anchor="" x="902.76" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (19 samples, 3.83%)</title><rect x="450.1" y="821" width="45.2" height="15.0" fill="rgb(205,124,30)" rx="2" ry="2" />
+<text text-anchor="" x="453.12" y="831.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (46 samples, 9.27%)</title><rect x="1044.9" y="1253" width="109.4" height="15.0" fill="rgb(233,21,27)" rx="2" ry="2" />
+<text text-anchor="" x="1047.88" y="1263.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (8 samples, 1.61%)</title><rect x="588.1" y="1301" width="19.0" height="15.0" fill="rgb(222,38,42)" rx="2" ry="2" />
+<text text-anchor="" x="591.10" y="1311.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (106 samples, 21.37%)</title><rect x="704.7" y="869" width="252.2" height="15.0" fill="rgb(208,177,26)" rx="2" ry="2" />
+<text text-anchor="" x="707.68" y="879.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="559.6" y="533" width="2.3" height="15.0" fill="rgb(220,147,25)" rx="2" ry="2" />
+<text text-anchor="" x="562.56" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (133 samples, 26.81%)</title><rect x="650.0" y="1237" width="316.4" height="15.0" fill="rgb(225,4,12)" rx="2" ry="2" />
+<text text-anchor="" x="652.96" y="1247.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (97 samples, 19.56%)</title><rect x="726.1" y="725" width="230.8" height="15.0" fill="rgb(223,64,18)" rx="2" ry="2" />
+<text text-anchor="" x="729.09" y="735.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (86 samples, 17.34%)</title><rect x="745.1" y="613" width="204.6" height="15.0" fill="rgb(246,146,26)" rx="2" ry="2" />
+<text text-anchor="" x="748.12" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalCodeWithName</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (3 samples, 0.60%)</title><rect x="554.8" y="565" width="7.1" height="15.0" fill="rgb(215,149,14)" rx="2" ry="2" />
+<text text-anchor="" x="557.80" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyGC_CollectIfEnabled (2 samples, 0.40%)</title><rect x="21.9" y="1509" width="4.8" height="15.0" fill="rgb(253,169,35)" rx="2" ry="2" />
+<text text-anchor="" x="24.90" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (32 samples, 6.45%)</title><rect x="140.8" y="1445" width="76.2" height="15.0" fill="rgb(215,180,20)" rx="2" ry="2" />
+<text text-anchor="" x="143.85" y="1455.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunct..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>config_get_codec_name (127 samples, 25.60%)</title><rect x="305.0" y="1509" width="302.1" height="15.0" fill="rgb(226,33,53)" rx="2" ry="2" />
+<text text-anchor="" x="308.00" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >config_get_codec_name</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_call_varargs (99 samples, 19.96%)</title><rect x="326.4" y="1365" width="235.5" height="15.0" fill="rgb(233,149,29)" rx="2" ry="2" />
+<text text-anchor="" x="329.41" y="1375.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cfunction_call_varargs</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_MakeTpCall (70 samples, 14.11%)</title><rect x="987.8" y="1445" width="166.5" height="15.0" fill="rgb(235,91,33)" rx="2" ry="2" />
+<text text-anchor="" x="990.78" y="1455.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_MakeTpCall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (28 samples, 5.65%)</title><rect x="1087.7" y="1077" width="66.6" height="15.0" fill="rgb(207,91,1)" rx="2" ry="2" />
+<text text-anchor="" x="1090.70" y="1087.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunc..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (4 samples, 0.81%)</title><rect x="485.8" y="581" width="9.5" height="15.0" fill="rgb(252,61,23)" rx="2" ry="2" />
+<text text-anchor="" x="488.81" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (62 samples, 12.50%)</title><rect x="414.4" y="997" width="147.5" height="15.0" fill="rgb(243,28,44)" rx="2" ry="2" />
+<text text-anchor="" x="417.44" y="1007.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameD..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyCodecRegistry_Init (106 samples, 21.37%)</title><rect x="309.8" y="1477" width="252.1" height="15.0" fill="rgb(228,2,31)" rx="2" ry="2" />
+<text text-anchor="" x="312.76" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyCodecRegistry_Init</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (8 samples, 1.61%)</title><rect x="197.9" y="1061" width="19.1" height="15.0" fill="rgb(211,115,21)" rx="2" ry="2" />
+<text text-anchor="" x="200.94" y="1071.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (19 samples, 3.83%)</title><rect x="171.8" y="1237" width="45.2" height="15.0" fill="rgb(240,223,34)" rx="2" ry="2" />
+<text text-anchor="" x="174.77" y="1247.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >func..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (45 samples, 9.07%)</title><rect x="842.7" y="309" width="107.0" height="15.0" fill="rgb(242,68,46)" rx="2" ry="2" />
+<text text-anchor="" x="845.66" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_V..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalCode (3 samples, 0.60%)</title><rect x="133.7" y="1109" width="7.1" height="15.0" fill="rgb(241,218,11)" rx="2" ry="2" />
+<text text-anchor="" x="136.71" y="1119.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (67 samples, 13.51%)</title><rect x="402.5" y="1077" width="159.4" height="15.0" fill="rgb(223,60,37)" rx="2" ry="2" />
+<text text-anchor="" x="405.54" y="1087.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (14 samples, 2.82%)</title><rect x="573.8" y="1397" width="33.3" height="15.0" fill="rgb(252,76,34)" rx="2" ry="2" />
+<text text-anchor="" x="576.83" y="1407.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (115 samples, 23.19%)</title><rect x="692.8" y="949" width="273.6" height="15.0" fill="rgb(249,83,12)" rx="2" ry="2" />
+<text text-anchor="" x="695.78" y="959.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (67 samples, 13.51%)</title><rect x="57.6" y="1477" width="159.4" height="15.0" fill="rgb(253,130,53)" rx="2" ry="2" />
+<text text-anchor="" x="60.58" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (6 samples, 1.21%)</title><rect x="902.1" y="133" width="14.3" height="15.0" fill="rgb(205,123,15)" rx="2" ry="2" />
+<text text-anchor="" x="905.14" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (23 samples, 4.64%)</title><rect x="247.9" y="1317" width="54.7" height="15.0" fill="rgb(230,142,30)" rx="2" ry="2" />
+<text text-anchor="" x="250.90" y="1327.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEva..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (25 samples, 5.04%)</title><rect x="81.4" y="1317" width="59.4" height="15.0" fill="rgb(210,155,6)" rx="2" ry="2" />
+<text text-anchor="" x="84.37" y="1327.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >functi..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>r_object (2 samples, 0.40%)</title><rect x="124.2" y="1029" width="4.8" height="15.0" fill="rgb(248,21,3)" rx="2" ry="2" />
+<text text-anchor="" x="127.19" y="1039.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (69 samples, 13.91%)</title><rect x="52.8" y="1509" width="164.2" height="15.0" fill="rgb(234,44,25)" rx="2" ry="2" />
+<text text-anchor="" x="55.82" y="1519.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (49 samples, 9.88%)</title><rect x="445.4" y="837" width="116.5" height="15.0" fill="rgb(242,103,2)" rx="2" ry="2" />
+<text text-anchor="" x="448.36" y="847.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Ve..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (13 samples, 2.62%)</title><rect x="531.0" y="581" width="30.9" height="15.0" fill="rgb(205,25,39)" rx="2" ry="2" />
+<text text-anchor="" x="534.01" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (31 samples, 6.25%)</title><rect x="143.2" y="1429" width="73.8" height="15.0" fill="rgb(241,182,15)" rx="2" ry="2" />
+<text text-anchor="" x="146.23" y="1439.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (134 samples, 27.02%)</title><rect x="647.6" y="1253" width="318.8" height="15.0" fill="rgb(251,216,7)" rx="2" ry="2" />
+<text text-anchor="" x="650.58" y="1263.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="954.5" y="581" width="2.4" height="15.0" fill="rgb(211,193,13)" rx="2" ry="2" />
+<text text-anchor="" x="957.48" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (6 samples, 1.21%)</title><rect x="540.5" y="533" width="14.3" height="15.0" fill="rgb(205,33,39)" rx="2" ry="2" />
+<text text-anchor="" x="543.52" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (89 samples, 17.94%)</title><rect x="350.2" y="1205" width="211.7" height="15.0" fill="rgb(229,53,35)" rx="2" ry="2" />
+<text text-anchor="" x="353.20" y="1215.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_code_fastcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_MakeTpCall (146 samples, 29.44%)</title><rect x="619.0" y="1445" width="347.4" height="15.0" fill="rgb(223,114,33)" rx="2" ry="2" />
+<text text-anchor="" x="622.03" y="1455.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_MakeTpCall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (14 samples, 2.82%)</title><rect x="1121.0" y="853" width="33.3" height="15.0" fill="rgb(229,40,8)" rx="2" ry="2" />
+<text text-anchor="" x="1124.01" y="863.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (11 samples, 2.22%)</title><rect x="581.0" y="1349" width="26.1" height="15.0" fill="rgb(243,71,12)" rx="2" ry="2" />
+<text text-anchor="" x="583.97" y="1359.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (116 samples, 23.39%)</title><rect x="690.4" y="965" width="276.0" height="15.0" fill="rgb(210,19,39)" rx="2" ry="2" />
+<text text-anchor="" x="693.40" y="975.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalCodeWithName</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_FASTCALL (119 samples, 23.99%)</title><rect x="683.3" y="1013" width="283.1" height="15.0" fill="rgb(205,195,40)" rx="2" ry="2" />
+<text text-anchor="" x="686.27" y="1023.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cfunction_vectorcall_FASTCALL</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (10 samples, 2.02%)</title><rect x="471.5" y="677" width="23.8" height="15.0" fill="rgb(241,145,8)" rx="2" ry="2" />
+<text text-anchor="" x="474.53" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (21 samples, 4.23%)</title><rect x="252.7" y="1285" width="49.9" height="15.0" fill="rgb(217,75,2)" rx="2" ry="2" />
+<text text-anchor="" x="255.66" y="1295.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_call_varargs (13 samples, 2.62%)</title><rect x="464.4" y="725" width="30.9" height="15.0" fill="rgb(232,99,15)" rx="2" ry="2" />
+<text text-anchor="" x="467.40" y="735.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (14 samples, 2.82%)</title><rect x="528.6" y="597" width="33.3" height="15.0" fill="rgb(230,170,41)" rx="2" ry="2" />
+<text text-anchor="" x="531.63" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>object_vacall (31 samples, 6.25%)</title><rect x="67.1" y="1413" width="73.7" height="15.0" fill="rgb(240,113,32)" rx="2" ry="2" />
+<text text-anchor="" x="70.10" y="1423.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >object_v..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (5 samples, 1.01%)</title><rect x="1178.1" y="1413" width="11.9" height="15.0" fill="rgb(240,223,22)" rx="2" ry="2" />
+<text text-anchor="" x="1181.10" y="1423.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (87 samples, 17.54%)</title><rect x="355.0" y="1173" width="206.9" height="15.0" fill="rgb(247,76,49)" rx="2" ry="2" />
+<text text-anchor="" x="357.96" y="1183.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (85 samples, 17.14%)</title><rect x="747.5" y="597" width="202.2" height="15.0" fill="rgb(210,217,30)" rx="2" ry="2" />
+<text text-anchor="" x="750.50" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameDefault</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (2 samples, 0.40%)</title><rect x="952.1" y="597" width="4.8" height="15.0" fill="rgb(245,0,23)" rx="2" ry="2" />
+<text text-anchor="" x="955.10" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyImportZip_Init (36 samples, 7.26%)</title><rect x="217.0" y="1525" width="85.6" height="15.0" fill="rgb(225,221,43)" rx="2" ry="2" />
+<text text-anchor="" x="219.98" y="1535.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyImportZ..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (8 samples, 1.61%)</title><rect x="1135.3" y="757" width="19.0" height="15.0" fill="rgb(233,15,20)" rx="2" ry="2" />
+<text text-anchor="" x="1138.28" y="767.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (29 samples, 5.85%)</title><rect x="71.9" y="1381" width="68.9" height="15.0" fill="rgb(220,185,18)" rx="2" ry="2" />
+<text text-anchor="" x="74.85" y="1391.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >functio..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (7 samples, 1.41%)</title><rect x="478.7" y="629" width="16.6" height="15.0" fill="rgb(217,119,44)" rx="2" ry="2" />
+<text text-anchor="" x="481.67" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (91 samples, 18.35%)</title><rect x="740.4" y="629" width="216.5" height="15.0" fill="rgb(210,108,39)" rx="2" ry="2" />
+<text text-anchor="" x="743.36" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (10 samples, 2.02%)</title><rect x="1130.5" y="789" width="23.8" height="15.0" fill="rgb(210,113,50)" rx="2" ry="2" />
+<text text-anchor="" x="1133.52" y="799.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >P..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (27 samples, 5.44%)</title><rect x="885.5" y="197" width="64.2" height="15.0" fill="rgb(240,130,31)" rx="2" ry="2" />
+<text text-anchor="" x="888.48" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (135 samples, 27.22%)</title><rect x="645.2" y="1269" width="321.2" height="15.0" fill="rgb(227,99,52)" rx="2" ry="2" />
+<text text-anchor="" x="648.20" y="1279.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (28 samples, 5.65%)</title><rect x="495.3" y="821" width="66.6" height="15.0" fill="rgb(218,88,9)" rx="2" ry="2" />
+<text text-anchor="" x="498.32" y="831.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >functio..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (60 samples, 12.10%)</title><rect x="807.0" y="389" width="142.7" height="15.0" fill="rgb(208,73,51)" rx="2" ry="2" />
+<text text-anchor="" x="809.98" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_EvalFrameD..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (2 samples, 0.40%)</title><rect x="388.3" y="965" width="4.7" height="15.0" fill="rgb(249,9,2)" rx="2" ry="2" />
+<text text-anchor="" x="391.27" y="975.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (21 samples, 4.23%)</title><rect x="512.0" y="709" width="49.9" height="15.0" fill="rgb(241,48,35)" rx="2" ry="2" />
+<text text-anchor="" x="514.98" y="719.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (42 samples, 8.47%)</title><rect x="1054.4" y="1221" width="99.9" height="15.0" fill="rgb(254,148,45)" rx="2" ry="2" />
+<text text-anchor="" x="1057.40" y="1231.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval_Eval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (110 samples, 22.18%)</title><rect x="695.2" y="933" width="261.7" height="15.0" fill="rgb(254,50,6)" rx="2" ry="2" />
+<text text-anchor="" x="698.16" y="943.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportModuleLevelObject</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallMethodIdObjArgs (75 samples, 15.12%)</title><rect x="771.3" y="469" width="178.4" height="15.0" fill="rgb(247,36,30)" rx="2" ry="2" />
+<text text-anchor="" x="774.29" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_CallMethodIdO..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_CallFunctionVa.part.6 (33 samples, 6.65%)</title><rect x="224.1" y="1477" width="78.5" height="15.0" fill="rgb(244,119,31)" rx="2" ry="2" />
+<text text-anchor="" x="227.11" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>r_object (1 samples, 0.20%)</title><rect x="126.6" y="1013" width="2.4" height="15.0" fill="rgb(249,199,1)" rx="2" ry="2" />
+<text text-anchor="" x="129.57" y="1023.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (10 samples, 2.02%)</title><rect x="193.2" y="1093" width="23.8" height="15.0" fill="rgb(253,42,2)" rx="2" ry="2" />
+<text text-anchor="" x="196.19" y="1103.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >f..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (29 samples, 5.85%)</title><rect x="148.0" y="1397" width="69.0" height="15.0" fill="rgb(207,17,26)" rx="2" ry="2" />
+<text text-anchor="" x="150.98" y="1407.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>collect.constprop.36 (2 samples, 0.40%)</title><rect x="33.8" y="1477" width="4.7" height="15.0" fill="rgb(207,156,45)" rx="2" ry="2" />
+<text text-anchor="" x="36.79" y="1487.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (48 samples, 9.68%)</title><rect x="1040.1" y="1269" width="114.2" height="15.0" fill="rgb(254,51,30)" rx="2" ry="2" />
+<text text-anchor="" x="1043.12" y="1279.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Ve..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (18 samples, 3.63%)</title><rect x="259.8" y="1237" width="42.8" height="15.0" fill="rgb(252,109,28)" rx="2" ry="2" />
+<text text-anchor="" x="262.80" y="1247.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyE..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (8 samples, 1.61%)</title><rect x="930.7" y="117" width="19.0" height="15.0" fill="rgb(207,57,26)" rx="2" ry="2" />
+<text text-anchor="" x="933.69" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalCode (81 samples, 16.33%)</title><rect x="757.0" y="533" width="192.7" height="15.0" fill="rgb(224,111,40)" rx="2" ry="2" />
+<text text-anchor="" x="760.02" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalCode</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (7 samples, 1.41%)</title><rect x="538.1" y="549" width="16.7" height="15.0" fill="rgb(224,56,7)" rx="2" ry="2" />
+<text text-anchor="" x="541.15" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (12 samples, 2.42%)</title><rect x="921.2" y="149" width="28.5" height="15.0" fill="rgb(242,86,31)" rx="2" ry="2" />
+<text text-anchor="" x="924.17" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (26 samples, 5.24%)</title><rect x="79.0" y="1333" width="61.8" height="15.0" fill="rgb(223,41,47)" rx="2" ry="2" />
+<text text-anchor="" x="81.99" y="1343.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (6 samples, 1.21%)</title><rect x="1175.7" y="1429" width="14.3" height="15.0" fill="rgb(228,106,21)" rx="2" ry="2" />
+<text text-anchor="" x="1178.73" y="1439.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin_exec (82 samples, 16.53%)</title><rect x="754.6" y="549" width="195.1" height="15.0" fill="rgb(236,143,11)" rx="2" ry="2" />
+<text text-anchor="" x="757.64" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >builtin_exec</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (5 samples, 1.01%)</title><rect x="381.1" y="1013" width="11.9" height="15.0" fill="rgb(252,118,5)" rx="2" ry="2" />
+<text text-anchor="" x="384.13" y="1023.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyObject_MakeTpCall (101 samples, 20.36%)</title><rect x="321.7" y="1397" width="240.2" height="15.0" fill="rgb(243,140,47)" rx="2" ry="2" />
+<text text-anchor="" x="324.65" y="1407.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyObject_MakeTpCall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_call_varargs (66 samples, 13.31%)</title><rect x="997.3" y="1413" width="157.0" height="15.0" fill="rgb(236,210,14)" rx="2" ry="2" />
+<text text-anchor="" x="1000.30" y="1423.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cfunction_call_varargs</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_call_varargs (13 samples, 2.62%)</title><rect x="576.2" y="1381" width="30.9" height="15.0" fill="rgb(246,77,9)" rx="2" ry="2" />
+<text text-anchor="" x="579.21" y="1391.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cf..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cfunction_vectorcall_O (5 samples, 1.01%)</title><rect x="117.1" y="1077" width="11.9" height="15.0" fill="rgb(223,164,2)" rx="2" ry="2" />
+<text text-anchor="" x="120.06" y="1087.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyUnicode_InitEncodings (128 samples, 25.81%)</title><rect x="302.6" y="1525" width="304.5" height="15.0" fill="rgb(205,131,53)" rx="2" ry="2" />
+<text text-anchor="" x="305.62" y="1535.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyUnicode_InitEncodings</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (30 samples, 6.05%)</title><rect x="145.6" y="1413" width="71.4" height="15.0" fill="rgb(249,4,35)" rx="2" ry="2" />
+<text text-anchor="" x="148.60" y="1423.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_E..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (27 samples, 5.44%)</title><rect x="1090.1" y="1061" width="64.2" height="15.0" fill="rgb(247,9,45)" rx="2" ry="2" />
+<text text-anchor="" x="1093.08" y="1071.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyEval..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (6 samples, 1.21%)</title><rect x="202.7" y="1029" width="14.3" height="15.0" fill="rgb(219,23,54)" rx="2" ry="2" />
+<text text-anchor="" x="205.70" y="1039.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (24 samples, 4.84%)</title><rect x="159.9" y="1317" width="57.1" height="15.0" fill="rgb(238,229,2)" rx="2" ry="2" />
+<text text-anchor="" x="162.88" y="1327.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (15 samples, 3.02%)</title><rect x="1118.6" y="869" width="35.7" height="15.0" fill="rgb(227,59,27)" rx="2" ry="2" />
+<text text-anchor="" x="1121.63" y="879.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyOS_InitInterrupts (3 samples, 0.60%)</title><rect x="43.3" y="1525" width="7.1" height="15.0" fill="rgb(234,127,32)" rx="2" ry="2" />
+<text text-anchor="" x="46.31" y="1535.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalCode (22 samples, 4.44%)</title><rect x="1102.0" y="981" width="52.3" height="15.0" fill="rgb(220,173,11)" rx="2" ry="2" />
+<text text-anchor="" x="1104.98" y="991.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEva..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (137 samples, 27.62%)</title><rect x="640.4" y="1301" width="326.0" height="15.0" fill="rgb(214,117,27)" rx="2" ry="2" />
+<text text-anchor="" x="643.44" y="1311.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyCFunction_Call (4 samples, 0.81%)</title><rect x="207.5" y="997" width="9.5" height="15.0" fill="rgb(231,71,34)" rx="2" ry="2" />
+<text text-anchor="" x="210.46" y="1007.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin___import__ (12 samples, 2.42%)</title><rect x="578.6" y="1365" width="28.5" height="15.0" fill="rgb(214,226,43)" rx="2" ry="2" />
+<text text-anchor="" x="581.59" y="1375.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >bu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin_exec (4 samples, 0.81%)</title><rect x="131.3" y="1125" width="9.5" height="15.0" fill="rgb(211,139,4)" rx="2" ry="2" />
+<text text-anchor="" x="134.33" y="1135.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (36 samples, 7.26%)</title><rect x="1068.7" y="1173" width="85.6" height="15.0" fill="rgb(226,70,20)" rx="2" ry="2" />
+<text text-anchor="" x="1071.67" y="1183.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_Eva..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (1 samples, 0.20%)</title><rect x="604.8" y="1189" width="2.3" height="15.0" fill="rgb(231,37,34)" rx="2" ry="2" />
+<text text-anchor="" x="607.76" y="1199.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (4 samples, 0.81%)</title><rect x="383.5" y="997" width="9.5" height="15.0" fill="rgb(206,0,10)" rx="2" ry="2" />
+<text text-anchor="" x="386.51" y="1007.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalCode (3 samples, 0.60%)</title><rect x="547.7" y="485" width="7.1" height="15.0" fill="rgb(215,228,19)" rx="2" ry="2" />
+<text text-anchor="" x="550.66" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (107 samples, 21.57%)</title><rect x="702.3" y="885" width="254.6" height="15.0" fill="rgb(229,177,10)" rx="2" ry="2" />
+<text text-anchor="" x="705.30" y="895.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (5 samples, 1.01%)</title><rect x="205.1" y="1013" width="11.9" height="15.0" fill="rgb(212,39,23)" rx="2" ry="2" />
+<text text-anchor="" x="208.08" y="1023.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (20 samples, 4.03%)</title><rect x="255.0" y="1269" width="47.6" height="15.0" fill="rgb(239,1,37)" rx="2" ry="2" />
+<text text-anchor="" x="258.04" y="1279.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >func..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (92 samples, 18.55%)</title><rect x="343.1" y="1253" width="218.8" height="15.0" fill="rgb(226,150,1)" rx="2" ry="2" />
+<text text-anchor="" x="346.06" y="1263.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEval_EvalFrameEx</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (6 samples, 1.21%)</title><rect x="935.4" y="101" width="14.3" height="15.0" fill="rgb(229,39,38)" rx="2" ry="2" />
+<text text-anchor="" x="938.44" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (12 samples, 2.42%)</title><rect x="274.1" y="1141" width="28.5" height="15.0" fill="rgb(252,188,39)" rx="2" ry="2" />
+<text text-anchor="" x="277.07" y="1151.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >fu..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>init_import_site (151 samples, 30.44%)</title><rect x="607.1" y="1525" width="359.3" height="15.0" fill="rgb(216,171,44)" rx="2" ry="2" />
+<text text-anchor="" x="610.14" y="1535.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >init_import_site</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (78 samples, 15.73%)</title><rect x="764.2" y="485" width="185.5" height="15.0" fill="rgb(231,148,15)" rx="2" ry="2" />
+<text text-anchor="" x="767.15" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyImport_ImportModuleLev..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (8 samples, 1.61%)</title><rect x="535.8" y="565" width="19.0" height="15.0" fill="rgb(236,169,11)" rx="2" ry="2" />
+<text text-anchor="" x="538.77" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>method_vectorcall (7 samples, 1.41%)</title><rect x="376.4" y="1045" width="16.6" height="15.0" fill="rgb(239,175,25)" rx="2" ry="2" />
+<text text-anchor="" x="379.37" y="1055.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (23 samples, 4.64%)</title><rect x="507.2" y="741" width="54.7" height="15.0" fill="rgb(229,42,53)" rx="2" ry="2" />
+<text text-anchor="" x="510.22" y="751.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEva..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (2 samples, 0.40%)</title><rect x="557.2" y="549" width="4.7" height="15.0" fill="rgb(234,25,24)" rx="2" ry="2" />
+<text text-anchor="" x="560.18" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalFrameDefault (5 samples, 1.01%)</title><rect x="595.2" y="1253" width="11.9" height="15.0" fill="rgb(231,135,49)" rx="2" ry="2" />
+<text text-anchor="" x="598.24" y="1263.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyImport_ImportModuleLevelObject (19 samples, 3.83%)</title><rect x="1109.1" y="933" width="45.2" height="15.0" fill="rgb(225,22,29)" rx="2" ry="2" />
+<text text-anchor="" x="1112.11" y="943.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyIm..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (131 samples, 26.41%)</title><rect x="654.7" y="1205" width="311.7" height="15.0" fill="rgb(237,147,28)" rx="2" ry="2" />
+<text text-anchor="" x="657.72" y="1215.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (68 samples, 13.71%)</title><rect x="400.2" y="1093" width="161.7" height="15.0" fill="rgb(212,7,53)" rx="2" ry="2" />
+<text text-anchor="" x="403.16" y="1103.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (42 samples, 8.47%)</title><rect x="849.8" y="293" width="99.9" height="15.0" fill="rgb(225,33,48)" rx="2" ry="2" />
+<text text-anchor="" x="852.80" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >function_cod..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (19 samples, 3.83%)</title><rect x="516.7" y="677" width="45.2" height="15.0" fill="rgb(228,28,41)" rx="2" ry="2" />
+<text text-anchor="" x="519.73" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (16 samples, 3.23%)</title><rect x="457.3" y="773" width="38.0" height="15.0" fill="rgb(238,61,54)" rx="2" ry="2" />
+<text text-anchor="" x="460.26" y="783.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_Py..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>builtin___import__ (29 samples, 5.85%)</title><rect x="233.6" y="1413" width="69.0" height="15.0" fill="rgb(240,183,28)" rx="2" ry="2" />
+<text text-anchor="" x="236.63" y="1423.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >builtin..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PyEval_EvalFrameEx (19 samples, 3.83%)</title><rect x="257.4" y="1253" width="45.2" height="15.0" fill="rgb(248,73,6)" rx="2" ry="2" />
+<text text-anchor="" x="260.42" y="1263.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >PyEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyEval_EvalCodeWithName (9 samples, 1.81%)</title><rect x="371.6" y="1077" width="21.4" height="15.0" fill="rgb(230,34,40)" rx="2" ry="2" />
+<text text-anchor="" x="374.61" y="1087.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyGC_CollectNoFail (4 samples, 0.81%)</title><rect x="29.0" y="1493" width="9.5" height="15.0" fill="rgb(216,44,15)" rx="2" ry="2" />
+<text text-anchor="" x="32.03" y="1503.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (33 samples, 6.65%)</title><rect x="871.2" y="245" width="78.5" height="15.0" fill="rgb(245,146,37)" rx="2" ry="2" />
+<text text-anchor="" x="874.21" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFuncti..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>function_code_fastcall (3 samples, 0.60%)</title><rect x="488.2" y="565" width="7.1" height="15.0" fill="rgb(209,132,28)" rx="2" ry="2" />
+<text text-anchor="" x="491.19" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (127 samples, 25.60%)</title><rect x="664.2" y="1141" width="302.2" height="15.0" fill="rgb(224,92,3)" rx="2" ry="2" />
+<text text-anchor="" x="667.23" y="1151.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_PyFunction_Vectorcall</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_PyFunction_Vectorcall (10 samples, 2.02%)</title><rect x="369.2" y="1093" width="23.8" height="15.0" fill="rgb(212,221,35)" rx="2" ry="2" />
+<text text-anchor="" x="372.23" y="1103.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+</svg>
